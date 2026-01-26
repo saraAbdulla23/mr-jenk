@@ -1,0 +1,38 @@
+// All @use statements MUST be at the top
+@use '@angular/material' as mat;
+
+// You can add other @use or @forward statements here if needed
+
+// Define your Material theme
+html {
+  @include mat.theme((
+    color: (
+      primary: mat.$magenta-palette,
+      tertiary: mat.$violet-palette,
+    ),
+    typography: Roboto,
+    density: 0,
+  ));
+}
+
+body {
+  // Default the application to a light color theme
+  color-scheme: light;
+
+  // Angular Material system-level CSS variables
+  background-color: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+
+  // Reset default margin
+  margin: 0;
+}
+
+// Optional: make html and body full height
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}

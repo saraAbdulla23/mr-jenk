@@ -1,0 +1,211 @@
+.dashboard {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  font-family: 'Roboto', sans-serif;
+  color: #333;
+
+  /* Top Bar */
+  .dashboard-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+
+    .dashboard-title {
+      h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #3f51b5;
+        margin: 0;
+      }
+
+      p {
+        font-size: 1rem;
+        color: #555;
+        margin: 0.25rem 0 0 0;
+      }
+    }
+
+    .dashboard-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+
+      button {
+        height: 40px;
+        font-weight: 500;
+      }
+    }
+  }
+
+  /* Status messages */
+  .success-alert {
+    text-align: center;
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    padding: 0.8rem 1.2rem;
+    border-radius: 8px;
+    font-weight: 500;
+    margin-bottom: 1rem;
+  }
+
+  div[ng-reflect-ng-if="loading"],
+  div[ng-reflect-ng-if="error"],
+  div[ng-reflect-ng-if="products.length === 0"] {
+    text-align: center;
+    font-size: 1rem;
+    color: #666;
+    margin: 1rem 0;
+  }
+
+  /* Products grid */
+  .products {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  /* Product card */
+  .product-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1rem;
+    border-radius: 12px;
+    background-color: #ffffff;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.1);
+    }
+
+    &.owner {
+      border: 2px solid #3f51b5;
+    }
+
+    mat-card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #3f51b5;
+    }
+
+    mat-card-content {
+      p {
+        margin: 0.25rem 0;
+        font-size: 0.95rem;
+        color: #444;
+
+        strong {
+          font-weight: 600;
+        }
+      }
+    }
+
+    mat-card-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    /* ================= MANUAL CAROUSEL ================= */
+    .carousel {
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+
+      .carousel-inner {
+        display: flex;
+        transform: translateX(0); /* always start at first image */
+        transition: transform 0.3s ease-in-out;
+
+        .carousel-image {
+          width: 100%;
+          height: 200px;
+          object-fit: cover;
+          border-radius: 8px;
+        }
+      }
+
+      .prev-btn,
+      .next-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: rgba(0, 0, 0, 0.4);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        font-size: 18px;
+        cursor: pointer;
+        outline: none;
+        z-index: 2;
+      }
+
+      .prev-btn {
+        left: 10px;
+      }
+
+      .next-btn {
+        right: 10px;
+      }
+
+      /* Dots indicators */
+      .dots {
+        position: absolute;
+        bottom: 10px;
+        width: 100%;
+        text-align: center;
+
+        span {
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          margin: 0 4px;
+          background-color: rgba(255, 255, 255, 0.7);
+          border-radius: 50%;
+          cursor: pointer;
+
+          &.active {
+            background-color: #3f51b5;
+          }
+        }
+      }
+    }
+  }
+
+  /* Responsive tweaks */
+  @media (max-width: 768px) {
+    .dashboard-topbar {
+      flex-direction: column;
+      align-items: flex-start;
+
+      .dashboard-actions {
+        justify-content: flex-start;
+        width: 100%;
+      }
+    }
+
+    .products {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+
+      .product-card {
+        width: 250px;
+      }
+    }
+  }
+}

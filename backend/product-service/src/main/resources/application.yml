@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: product-service
+
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: buy01db
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: product-service-group
+      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+server:
+  port: 8085
+
+# Kafka topics
+kafka:
+  topic:
+    product-events: product-events
+    user-events: user-events
+
+# Eureka Client Configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true

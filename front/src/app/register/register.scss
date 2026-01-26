@@ -1,0 +1,46 @@
+form {
+    max-width: 420px;      // slightly wider for more fields
+    margin: 2.5rem auto;   // center horizontally
+    padding: 2rem 1.75rem;
+  
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+  
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+  }
+  
+  /* Full width inputs inside form */
+  mat-form-field {
+    width: 100%;
+  }
+  
+  /* Primary button */
+  button[mat-raised-button] {
+    width: 100%;
+    height: 48px;
+    font-weight: 600;
+    margin-top: 0.5rem;
+  }
+  
+  /* Error message */
+  .error-message {
+    text-align: center;
+    color: #d32f2f;
+    font-size: 0.9rem;
+  }
+  ::ng-deep mat-form-field.mat-form-field-appearance-outline {
+    .mat-form-field-outline {
+      border-radius: 10px;
+    }
+  
+    .mat-form-field-label {
+      font-weight: 500;
+    }
+  }
+  
+  ::ng-deep mat-select {
+    padding-top: 2px;
+  }

@@ -1,0 +1,43 @@
+<mat-card>
+  <h2>Create Product</h2>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+
+    <mat-form-field appearance="outline">
+      <mat-label>Product Name</mat-label>
+      <input matInput formControlName="name" />
+      <mat-error *ngIf="form.get('name')?.invalid && form.get('name')?.touched">
+        Name is required
+      </mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Description</mat-label>
+      <input matInput formControlName="description" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Price</mat-label>
+      <input type="number" matInput formControlName="price" />
+      <mat-error *ngIf="form.get('price')?.invalid && form.get('price')?.touched">
+        Price must be greater than 0
+      </mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Quantity</mat-label>
+      <input type="number" matInput formControlName="quantity" />
+      <mat-error *ngIf="form.get('quantity')?.invalid && form.get('quantity')?.touched">
+        Quantity must be at least 1
+      </mat-error>
+    </mat-form-field>
+
+    <button mat-raised-button color="primary" [disabled]="loading">
+      {{ loading ? 'Creating...' : 'Create Product' }}
+    </button>
+
+    <p *ngIf="errorMessage" style="color:red">{{ errorMessage }}</p>
+    <p *ngIf="successMessage" style="color:green">{{ successMessage }}</p>
+
+  </form>
+</mat-card>

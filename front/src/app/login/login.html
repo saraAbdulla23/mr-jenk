@@ -1,0 +1,29 @@
+<form [formGroup]="form" (ngSubmit)="submit()">
+  <mat-form-field appearance="outline">
+    <mat-label>Email</mat-label>
+    <input matInput formControlName="email" placeholder="Email" />
+    <mat-icon matSuffix>email</mat-icon>
+    <mat-error *ngIf="form.get('email')?.invalid && form.get('email')?.touched">
+      Valid email is required
+    </mat-error>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Password</mat-label>
+    <input matInput type="password" formControlName="password" placeholder="Password" />
+    <mat-icon matSuffix>lock</mat-icon>
+    <mat-error *ngIf="form.get('password')?.invalid && form.get('password')?.touched">
+      Password is required
+    </mat-error>
+  </mat-form-field>
+
+  <button mat-raised-button color="primary" [disabled]="form.invalid || loading">
+    {{ loading ? 'Logging in...' : 'Login' }}
+  </button>
+
+  <p class="error-message" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <button mat-stroked-button color="accent" type="button" (click)="goToRegister()">
+    Register
+  </button>
+</form>

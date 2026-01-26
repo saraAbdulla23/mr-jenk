@@ -1,0 +1,29 @@
+form {
+  max-width: 380px;
+  margin: 0 auto; // centers horizontally
+  padding: 2rem 1.5rem;
+
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Full-width fields INSIDE the small form */
+mat-form-field {
+  width: 100%;
+}
+
+/* Buttons */
+button[mat-raised-button],
+button[mat-stroked-button] {
+  width: 100%;
+  height: 46px;
+  font-weight: 600;
+}
+
+/* Error message */
+.error-message {
+  text-align: center;
+  color: #d32f2f;
+  font-size: 0.9rem;
+}

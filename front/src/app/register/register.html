@@ -1,0 +1,55 @@
+<form [formGroup]="form" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input matInput formControlName="name" placeholder="Full Name" />
+      <mat-error *ngIf="form.get('name')?.invalid && form.get('name')?.touched">
+        Name is required
+      </mat-error>
+    </mat-form-field>
+  
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput formControlName="email" placeholder="Email" />
+      <mat-error *ngIf="form.get('email')?.errors?.['required']">
+        Email is required
+      </mat-error>
+      <mat-error *ngIf="form.get('email')?.errors?.['email']">
+        Please enter a valid email
+      </mat-error>
+    </mat-form-field>
+  
+    <mat-form-field appearance="outline">
+      <mat-label>Password</mat-label>
+      <input matInput type="password" formControlName="password" placeholder="Password" />
+      <mat-error *ngIf="form.get('password')?.errors?.['required']">
+        Password is required
+      </mat-error>
+      <mat-error *ngIf="form.get('password')?.errors?.['minlength']">
+        Password must be at least 6 characters
+      </mat-error>
+    </mat-form-field>
+  
+    <mat-form-field appearance="outline">
+        <mat-label>Role</mat-label>
+        <mat-select formControlName="role">
+          <mat-option value="CLIENT">Client</mat-option>
+          <mat-option value="SELLER">Seller</mat-option>
+        </mat-select>
+        <mat-error *ngIf="form.get('role')?.invalid && form.get('role')?.touched">
+          Role is required
+        </mat-error>
+      </mat-form-field>
+      
+  
+    <!-- <mat-form-field appearance="outline">
+      <mat-label>Avatar URL</mat-label>
+      <input matInput formControlName="avatar" placeholder="Avatar URL (optional)" />
+    </mat-form-field> -->
+  
+    <button mat-raised-button color="primary" [disabled]="form.invalid || loading">
+      {{ loading ? 'Registering...' : 'Register' }}
+    </button>
+  
+    <p class="error-message" *ngIf="errorMessage">{{ errorMessage }}</p>
+  </form>
+  

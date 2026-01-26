@@ -1,0 +1,94 @@
+<div class="profile" *ngIf="user; else errorTpl">
+  <mat-card class="profile-card">
+    <mat-card-title>Profile</mat-card-title>
+
+    <mat-card-content>
+      <!-- ================= AVATAR DISPLAY + UPLOAD FOR SELLERS ONLY ================= -->
+      <div *ngIf="user?.role === 'SELLER'" class="avatar-section">
+        <div class="profile-avatar">
+          <!-- Display selected preview first, then user's avatar, then default -->
+          <img
+            [src]="selectedAvatarPreview || user.avatar || 'assets/default-avatar.png'"
+            alt="Avatar"
+          />
+        </div>
+
+        <!-- ================= SUCCESS / ERROR MESSAGES ================= -->
+        <div *ngIf="successMessage" class="success-message">
+          {{ successMessage }}
+        </div>
+        <div *ngIf="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </div>
+
+        <!-- ================= AVATAR UPLOAD IN EDIT MODE ================= -->
+        <div *ngIf="editMode" class="avatar-upload">
+          <label><strong>Avatar</strong></label>
+          <input type="file" accept="image/*" (change)="onAvatarSelected($event)" />
+          <button
+            mat-raised-button
+            color="primary"
+            type="button"
+            (click)="uploadAvatar()"
+            [disabled]="!selectedAvatar"
+          >
+            Upload Avatar
+          </button>
+        </div>
+      </div>
+
+      <!-- ================= VIEW MODE ================= -->
+      <div *ngIf="!editMode" class="view-profile">
+        <p><strong>Name:</strong> {{ user.name }}</p>
+        <p><strong>Email:</strong> {{ user.email }}</p>
+        <p><strong>Role:</strong> {{ user.role }}</p>
+      </div>
+
+      <!-- ================= EDIT MODE ================= -->
+      <form *ngIf="editMode" class="profile-form" (ngSubmit)="saveProfile()">
+        <mat-form-field appearance="fill">
+          <mat-label>Name</mat-label>
+          <input matInput [(ngModel)]="editUser.name" name="name" required />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+          <mat-label>Email</mat-label>
+          <input matInput [(ngModel)]="editUser.email" name="email" required />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+          <mat-label>New Password</mat-label>
+          <input matInput type="password" [(ngModel)]="editUser.password" name="password" />
+        </mat-form-field>
+
+        <!-- ================= FORM ACTIONS ================= -->
+        <div class="form-actions">
+          <button mat-raised-button color="accent" type="submit">
+            Save
+          </button>
+          <button mat-button type="button" (click)="cancelEdit()">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+
+    <!-- ================= ACTION BUTTONS ================= -->
+    <mat-card-actions *ngIf="!editMode">
+      <button mat-raised-button color="primary" (click)="enableEdit()">
+        Edit Profile
+      </button>
+      <button mat-raised-button color="warn" (click)="deleteAccount()">
+        Delete Account
+      </button>
+      <button mat-raised-button (click)="goBack()">Back</button>
+      <button mat-raised-button color="warn" (click)="logout()">
+        Logout
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>
+
+<ng-template #errorTpl>
+  <p>{{ errorMessage }}</p>
+</ng-template>

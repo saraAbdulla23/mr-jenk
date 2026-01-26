@@ -1,0 +1,110 @@
+<div class="dashboard">
+  <!-- Top Bar -->
+  <div class="dashboard-topbar">
+    <div class="dashboard-title">
+      <h1>Products Dashboard</h1>
+      <p *ngIf="user">Welcome, {{ user.name || user.email }}!</p>
+    </div>
+
+    <div class="dashboard-actions">
+      <button mat-raised-button color="accent" (click)="goToProfile()">
+        View Profile
+      </button>
+
+      <button mat-raised-button color="warn" (click)="logout()">
+        Logout
+      </button>
+
+      <button
+        mat-raised-button
+        color="primary"
+        *ngIf="user?.role === 'ROLE_SELLER' || user?.role === 'SELLER'"
+        (click)="goToCreateProduct()"
+      >
+        Add Product
+      </button>
+    </div>
+  </div>
+
+  <!-- Success / Error / Loading Messages -->
+  <div *ngIf="successMessage" class="success-alert">
+    {{ successMessage }}
+  </div>
+
+  <div *ngIf="loading">Loading products...</div>
+  <div *ngIf="error">{{ error }}</div>
+  <div *ngIf="!loading && products.length === 0">
+    No products available.
+  </div>
+
+  <!-- Products Grid -->
+  <div class="products" *ngIf="products.length > 0">
+    <mat-card
+      *ngFor="let product of products"
+      class="product-card"
+      [ngClass]="{ owner: product.userId === user?.userId }"
+    >
+      <mat-card-title>{{ product.name }}</mat-card-title>
+
+      <!-- ================= IMAGE CAROUSEL ================= -->
+      <div
+        class="carousel"
+        *ngIf="
+          productImages[product.productId]?.length &&
+          productImages[product.productId][0]
+        "
+      >
+        <div class="carousel-inner">
+          <img
+            class="carousel-image"
+            [src]="
+              productImages[product.productId][
+                productImageIndex[product.productId]
+              ]
+            "
+            alt="{{ product.name }}"
+          />
+        </div>
+
+        <button class="prev-btn" (click)="prevImage(product.productId)">
+          &#10094;
+        </button>
+        <button class="next-btn" (click)="nextImage(product.productId)">
+          &#10095;
+        </button>
+
+        <!-- Dots -->
+        <div class="dots">
+          <span
+            *ngFor="
+              let img of productImages[product.productId];
+              let i = index
+            "
+            [class.active]="i === productImageIndex[product.productId]"
+            (click)="goToImage(product.productId, i)"
+          ></span>
+        </div>
+      </div>
+
+      <mat-card-content>
+        <p>Price: ${{ product.price }}</p>
+        <p>Quantity: {{ product.quantity }}</p>
+        <p *ngIf="product.description">
+          Description: {{ product.description }}
+        </p>
+      </mat-card-content>
+
+      <mat-card-actions
+        *ngIf="product.userId === user?.userId"
+        class="action-buttons"
+      >
+        <button mat-raised-button color="accent" (click)="editProduct(product)">
+          Edit
+        </button>
+        <button mat-raised-button color="warn" (click)="deleteProduct(product)">
+          Delete
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+</div>
