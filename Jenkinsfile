@@ -1,10 +1,22 @@
 pipeline {
     agent any
 
+    // Trigger pipeline automatically on Git commits
+    triggers {
+        pollSCM('H/5 * * * *') // Poll every 5 minutes
+    }
+
+    environment {
+        // Use Jenkins Credentials for sensitive info (replace IDs with your Jenkins credentials)
+        SMTP_USER = credentials('smtp_user')
+        SMTP_PASS = credentials('smtp_pass')
+    }
+
     stages {
 
         stage('Checkout') {
             steps {
+                echo '🔄 Checking out source code from Git'
                 checkout scm
             }
         }
@@ -12,21 +24,23 @@ pipeline {
         stage('Frontend Build') {
             steps {
                 dir('front') {
-                    sh '''
-                    echo "📦 Installing frontend dependencies"
-                    npm install || true
+                    echo '📦 Installing frontend dependencies'
+                    sh 'npm install'
 
-                    echo "🏗️ Building Angular frontend"
-                    npm run build || true
-                    '''
+                    echo '🏗️ Building Angular frontend'
+                    sh 'npm run build'
                 }
             }
         }
 
         stage('Frontend Tests') {
             steps {
-                echo '🧪 Running frontend tests (Jasmine / Karma)'
-                sh 'echo "Frontend tests passed"'
+                dir('front') {
+                    echo '🧪 Running frontend tests (Jasmine/Karma)'
+                    sh 'npm test'
+                    // Archive frontend test reports (update path if needed)
+                    junit 'test-results/**/*.xml'
+                }
             }
         }
 
@@ -35,23 +49,23 @@ pipeline {
                 echo '🔧 Building backend microservices'
 
                 dir('backend/discovery-service') {
-                    sh 'mvn clean package -DskipTests || true'
+                    sh 'mvn clean package -DskipTests=false'
                 }
 
                 dir('backend/api-gateway') {
-                    sh 'mvn clean package -DskipTests || true'
+                    sh 'mvn clean package -DskipTests=false'
                 }
 
                 dir('backend/user-service') {
-                    sh 'mvn clean package -DskipTests || true'
+                    sh 'mvn clean package -DskipTests=false'
                 }
 
                 dir('backend/product-service') {
-                    sh 'mvn clean package -DskipTests || true'
+                    sh 'mvn clean package -DskipTests=false'
                 }
 
                 dir('backend/media-service') {
-                    sh 'mvn clean package -DskipTests || true'
+                    sh 'mvn clean package -DskipTests=false'
                 }
             }
         }
@@ -59,17 +73,25 @@ pipeline {
         stage('Backend Tests') {
             steps {
                 echo '🧪 Running backend tests (JUnit)'
-                sh 'echo "Backend tests passed"'
+                dir('backend') {
+                    sh 'mvn test'
+                    // Archive JUnit test reports
+                    junit '**/target/surefire-reports/*.xml'
+                }
             }
         }
 
         stage('Deploy') {
             steps {
-                echo '🚀 Deploying application'
-                echo 'Starting Discovery Service'
-                echo 'Starting API Gateway'
-                echo 'Starting User, Product, and Media Services'
-                echo 'Frontend served via build output'
+                echo '🚀 Deploying application...'
+
+                // Replace these with real deployment commands
+                sh '''
+                echo "Starting Discovery Service..."
+                echo "Starting API Gateway..."
+                echo "Starting User, Product, and Media Services..."
+                echo "Frontend served via build output..."
+                '''
             }
         }
     }
@@ -90,8 +112,13 @@ pipeline {
 
         failure {
             echo '❌ CI/CD Pipeline Failed – Rollback Initiated'
-            echo '🔄 Rolling back to last stable version'
+            echo '🔄 Rolling back to last stable version...'
             script {
+                // Replace with real rollback logic
+                sh '''
+                echo "Stopping all services..."
+                echo "Reverting to last stable deployment..."
+                '''
                 try {
                     mail to: 'sarakhalaf2312@gmail.com',
                          subject: '❌ Jenkins Build FAILED',
