@@ -1,15 +1,13 @@
 pipeline {
     agent any
 
-    // Trigger pipeline automatically on Git commits
     triggers {
-        pollSCM('H/5 * * * *') // Poll every 5 minutes
+        pollSCM('H/5 * * * *') // Poll Git every 5 minutes
     }
 
     environment {
-        // Optional: Use Jenkins credentials for SMTP if configured
-        SMTP_USER = credentials('smtp_user') // Replace with your Jenkins credential ID
-        SMTP_PASS = credentials('smtp_pass')
+        SMTP_USER = credentials('smtp_user') // replace with your Jenkins SMTP user ID
+        SMTP_PASS = credentials('smtp_pass') // replace with your Jenkins SMTP password ID
     }
 
     stages {
@@ -38,8 +36,6 @@ pipeline {
                 dir('front') {
                     echo '🧪 Running frontend tests (Jasmine/Karma)'
                     sh 'npm test'
-
-                    // Archive frontend test reports (update path if needed)
                     junit 'test-results/**/*.xml'
                 }
             }
@@ -48,36 +44,19 @@ pipeline {
         stage('Backend Build') {
             steps {
                 echo '🔧 Building backend microservices'
-
-                dir('backend/discovery-service') {
-                    sh 'mvn clean package -DskipTests=false'
-                }
-
-                dir('backend/api-gateway') {
-                    sh 'mvn clean package -DskipTests=false'
-                }
-
-                dir('backend/user-service') {
-                    sh 'mvn clean package -DskipTests=false'
-                }
-
-                dir('backend/product-service') {
-                    sh 'mvn clean package -DskipTests=false'
-                }
-
-                dir('backend/media-service') {
-                    sh 'mvn clean package -DskipTests=false'
-                }
+                dir('backend/discovery-service') { sh 'mvn clean package -DskipTests=false' }
+                dir('backend/api-gateway') { sh 'mvn clean package -DskipTests=false' }
+                dir('backend/user-service') { sh 'mvn clean package -DskipTests=false' }
+                dir('backend/product-service') { sh 'mvn clean package -DskipTests=false' }
+                dir('backend/media-service') { sh 'mvn clean package -DskipTests=false' }
             }
         }
 
         stage('Backend Tests') {
             steps {
-                echo '🧪 Running backend tests (JUnit)'
                 dir('backend') {
+                    echo '🧪 Running backend tests (JUnit)'
                     sh 'mvn test'
-
-                    // Archive JUnit test reports
                     junit '**/target/surefire-reports/*.xml'
                 }
             }
@@ -86,8 +65,6 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo '🚀 Deploying application...'
-
-                // Replace with real deployment commands
                 sh '''
                 echo "Starting Discovery Service..."
                 echo "Starting API Gateway..."
@@ -98,6 +75,7 @@ pipeline {
         }
     }
 
+    // Separate rollback stage to avoid post-context issues
     post {
         success {
             echo '✅ CI/CD Pipeline Completed Successfully'
@@ -113,20 +91,24 @@ pipeline {
         }
 
         failure {
-            echo '❌ CI/CD Pipeline Failed – Rollback Initiated'
-            echo '🔄 Rolling back to last stable version...'
-            script {
+            echo '❌ CI/CD Pipeline Failed'
+        }
+    }
+
+    // Optional: run rollback in a separate stage
+    // This ensures a node context is allocated
+    // and avoids MissingContextVariableException
+    stages {
+        stage('Rollback on Failure') {
+            when {
+                expression { currentBuild.result == 'FAILURE' }
+            }
+            steps {
+                echo '🔄 Rolling back to last stable version...'
                 sh '''
                 echo "Stopping all services..."
                 echo "Reverting to last stable deployment..."
                 '''
-                try {
-                    mail to: 'sarakhalaf2312@gmail.com',
-                         subject: '❌ Jenkins Build FAILED',
-                         body: 'Your CI/CD pipeline failed. Please check Jenkins logs.'
-                } catch (err) {
-                    echo '⚠️ Email notification skipped (SMTP not configured)'
-                }
             }
         }
     }
