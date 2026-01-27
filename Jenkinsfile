@@ -6,8 +6,8 @@ pipeline {
     }
 
     environment {
-        SMTP_USER = credentials('smtp_user') // replace with your Jenkins SMTP user ID
-        SMTP_PASS = credentials('smtp_pass') // replace with your Jenkins SMTP password ID
+        SMTP_USER = credentials('smtp_user') // Jenkins SMTP user
+        SMTP_PASS = credentials('smtp_pass') // Jenkins SMTP password
     }
 
     stages {
@@ -73,9 +73,22 @@ pipeline {
                 '''
             }
         }
+
+        // Rollback stage — only runs on failure
+        stage('Rollback') {
+            when {
+                expression { currentBuild.currentResult == 'FAILURE' }
+            }
+            steps {
+                echo '🔄 Rolling back to last stable version...'
+                sh '''
+                echo "Stopping all services..."
+                echo "Reverting to last stable deployment..."
+                '''
+            }
+        }
     }
 
-    // Separate rollback stage to avoid post-context issues
     post {
         success {
             echo '✅ CI/CD Pipeline Completed Successfully'
@@ -92,23 +105,14 @@ pipeline {
 
         failure {
             echo '❌ CI/CD Pipeline Failed'
-        }
-    }
-
-    // Optional: run rollback in a separate stage
-    // This ensures a node context is allocated
-    // and avoids MissingContextVariableException
-    stages {
-        stage('Rollback on Failure') {
-            when {
-                expression { currentBuild.result == 'FAILURE' }
-            }
-            steps {
-                echo '🔄 Rolling back to last stable version...'
-                sh '''
-                echo "Stopping all services..."
-                echo "Reverting to last stable deployment..."
-                '''
+            script {
+                try {
+                    mail to: 'sarakhalaf2312@gmail.com',
+                         subject: '❌ Jenkins Build FAILED',
+                         body: 'Your CI/CD pipeline failed. Please check Jenkins logs.'
+                } catch (err) {
+                    echo '⚠️ Email notification skipped (SMTP not configured)'
+                }
             }
         }
     }
