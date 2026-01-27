@@ -7,8 +7,8 @@ pipeline {
     }
 
     environment {
-        // Use Jenkins Credentials for sensitive info (replace IDs with your Jenkins credentials)
-        SMTP_USER = credentials('smtp_user')
+        // Optional: Use Jenkins credentials for SMTP if configured
+        SMTP_USER = credentials('smtp_user') // Replace with your Jenkins credential ID
         SMTP_PASS = credentials('smtp_pass')
     }
 
@@ -38,6 +38,7 @@ pipeline {
                 dir('front') {
                     echo '🧪 Running frontend tests (Jasmine/Karma)'
                     sh 'npm test'
+
                     // Archive frontend test reports (update path if needed)
                     junit 'test-results/**/*.xml'
                 }
@@ -75,6 +76,7 @@ pipeline {
                 echo '🧪 Running backend tests (JUnit)'
                 dir('backend') {
                     sh 'mvn test'
+
                     // Archive JUnit test reports
                     junit '**/target/surefire-reports/*.xml'
                 }
@@ -85,7 +87,7 @@ pipeline {
             steps {
                 echo '🚀 Deploying application...'
 
-                // Replace these with real deployment commands
+                // Replace with real deployment commands
                 sh '''
                 echo "Starting Discovery Service..."
                 echo "Starting API Gateway..."
@@ -98,33 +100,39 @@ pipeline {
 
     post {
         success {
-            echo '✅ CI/CD Pipeline Completed Successfully'
-            script {
-                try {
-                    mail to: 'sarakhalaf2312@gmail.com',
-                         subject: '✅ Jenkins Build SUCCESS',
-                         body: 'Your CI/CD pipeline completed successfully.'
-                } catch (err) {
-                    echo '⚠️ Email notification failed (SMTP not configured)'
+            node {
+                echo '✅ CI/CD Pipeline Completed Successfully'
+                script {
+                    // Optional email notification
+                    try {
+                        mail to: 'sarakhalaf2312@gmail.com',
+                             subject: '✅ Jenkins Build SUCCESS',
+                             body: 'Your CI/CD pipeline completed successfully.'
+                    } catch (err) {
+                        echo '⚠️ Email notification skipped (SMTP not configured)'
+                    }
                 }
             }
         }
 
         failure {
-            echo '❌ CI/CD Pipeline Failed – Rollback Initiated'
-            echo '🔄 Rolling back to last stable version...'
-            script {
-                // Replace with real rollback logic
-                sh '''
-                echo "Stopping all services..."
-                echo "Reverting to last stable deployment..."
-                '''
-                try {
-                    mail to: 'sarakhalaf2312@gmail.com',
-                         subject: '❌ Jenkins Build FAILED',
-                         body: 'Your CI/CD pipeline failed. Please check Jenkins logs.'
-                } catch (err) {
-                    echo '⚠️ Email notification failed (SMTP not configured)'
+            node {
+                echo '❌ CI/CD Pipeline Failed – Rollback Initiated'
+                echo '🔄 Rolling back to last stable version...'
+                script {
+                    // Replace with real rollback logic
+                    sh '''
+                    echo "Stopping all services..."
+                    echo "Reverting to last stable deployment..."
+                    '''
+                    // Optional email notification
+                    try {
+                        mail to: 'sarakhalaf2312@gmail.com',
+                             subject: '❌ Jenkins Build FAILED',
+                             body: 'Your CI/CD pipeline failed. Please check Jenkins logs.'
+                    } catch (err) {
+                        echo '⚠️ Email notification skipped (SMTP not configured)'
+                    }
                 }
             }
         }
