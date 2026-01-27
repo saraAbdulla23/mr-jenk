@@ -80,7 +80,7 @@ pipeline {
     post {
         success {
             echo '✅ CI/CD Pipeline Completed Successfully'
-            mail to: 'your@email.com',
+            mail to: 'sarakhalaf2312@gmail.com',
                  subject: 'Jenkins Build SUCCESS',
                  body: 'The CI/CD pipeline completed successfully.'
         }
@@ -88,7 +88,7 @@ pipeline {
         failure {
             echo '❌ CI/CD Pipeline Failed – Rollback Initiated'
             echo '🔄 Rolling back to last stable version'
-            mail to: 'your@email.com',
+            mail to: 'sarakhalaf2312@gmail.com',
                  subject: 'Jenkins Build FAILED',
                  body: 'The CI/CD pipeline failed. Please check Jenkins logs.'
         }
