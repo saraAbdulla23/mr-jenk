@@ -100,39 +100,32 @@ pipeline {
 
     post {
         success {
-            node {
-                echo '✅ CI/CD Pipeline Completed Successfully'
-                script {
-                    // Optional email notification
-                    try {
-                        mail to: 'sarakhalaf2312@gmail.com',
-                             subject: '✅ Jenkins Build SUCCESS',
-                             body: 'Your CI/CD pipeline completed successfully.'
-                    } catch (err) {
-                        echo '⚠️ Email notification skipped (SMTP not configured)'
-                    }
+            echo '✅ CI/CD Pipeline Completed Successfully'
+            script {
+                try {
+                    mail to: 'sarakhalaf2312@gmail.com',
+                         subject: '✅ Jenkins Build SUCCESS',
+                         body: 'Your CI/CD pipeline completed successfully.'
+                } catch (err) {
+                    echo '⚠️ Email notification skipped (SMTP not configured)'
                 }
             }
         }
 
         failure {
-            node {
-                echo '❌ CI/CD Pipeline Failed – Rollback Initiated'
-                echo '🔄 Rolling back to last stable version...'
-                script {
-                    // Replace with real rollback logic
-                    sh '''
-                    echo "Stopping all services..."
-                    echo "Reverting to last stable deployment..."
-                    '''
-                    // Optional email notification
-                    try {
-                        mail to: 'sarakhalaf2312@gmail.com',
-                             subject: '❌ Jenkins Build FAILED',
-                             body: 'Your CI/CD pipeline failed. Please check Jenkins logs.'
-                    } catch (err) {
-                        echo '⚠️ Email notification skipped (SMTP not configured)'
-                    }
+            echo '❌ CI/CD Pipeline Failed – Rollback Initiated'
+            echo '🔄 Rolling back to last stable version...'
+            script {
+                sh '''
+                echo "Stopping all services..."
+                echo "Reverting to last stable deployment..."
+                '''
+                try {
+                    mail to: 'sarakhalaf2312@gmail.com',
+                         subject: '❌ Jenkins Build FAILED',
+                         body: 'Your CI/CD pipeline failed. Please check Jenkins logs.'
+                } catch (err) {
+                    echo '⚠️ Email notification skipped (SMTP not configured)'
                 }
             }
         }
