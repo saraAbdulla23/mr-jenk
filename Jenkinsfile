@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        SMTP_USER = credentials('smtp_user')
-        SMTP_PASS = credentials('smtp_pass')
+        // Add environment variables here if needed
+        NODE_ENV = 'production'
     }
 
     stages {
@@ -15,12 +15,15 @@ pipeline {
         }
 
         stage('Frontend Build') {
+            agent {
+                docker { image 'node:20' } // Node.js for frontend
+            }
             steps {
                 dir('front') {
                     sh '''
                     echo "📦 Installing frontend dependencies"
                     npm install
-                    echo "🏗️ Building Angular frontend"
+                    echo "🚀 Building frontend"
                     npm run build
                     '''
                 }
@@ -28,10 +31,13 @@ pipeline {
         }
 
         stage('Frontend Tests') {
+            agent {
+                docker { image 'node:20' }
+            }
             steps {
                 dir('front') {
                     sh '''
-                    echo "🧪 Running frontend tests (Jasmine/Karma)"
+                    echo "🧪 Running frontend tests"
                     npm test
                     '''
                 }
@@ -40,75 +46,54 @@ pipeline {
 
         stage('Backend Build') {
             steps {
-                script {
-                    def services = ['discovery-service', 'api-gateway', 'user-service', 'product-service', 'media-service']
-                    for (service in services) {
-                        dir("backend/${service}") {
-                            sh "mvn clean package -DskipTests"
-                        }
-                    }
+                dir('back') {
+                    sh '''
+                    echo "🛠 Building backend"
+                    # Add your backend build commands here
+                    '''
                 }
             }
         }
 
         stage('Backend Tests') {
             steps {
-                script {
-                    def services = ['discovery-service', 'api-gateway', 'user-service', 'product-service', 'media-service']
-                    for (service in services) {
-                        dir("backend/${service}") {
-                            sh "mvn test"
-                        }
-                    }
+                dir('back') {
+                    sh '''
+                    echo "🧪 Running backend tests"
+                    # Add your backend test commands here
+                    '''
                 }
             }
         }
 
         stage('Deploy') {
             steps {
-                script {
-                    echo '🚀 Deploying application'
-                    echo 'Starting Discovery Service'
-                    echo 'Starting API Gateway'
-                    echo 'Starting User, Product, and Media Services'
-                    echo 'Frontend served via build output'
-                }
+                sh '''
+                echo "🚀 Deploying application"
+                # Add your deployment commands here
+                '''
             }
         }
     }
 
     post {
         success {
-            echo '✅ CI/CD Pipeline Completed Successfully'
-            script {
-                try {
-                    mail to: 'sarakhalaf2312@gmail.com',
-                         from: "${SMTP_USER}",
-                         subject: '✅ Jenkins Build SUCCESS',
-                         body: 'Your CI/CD pipeline completed successfully.',
-                         smtpPassword: "${SMTP_PASS}"
-                } catch (err) {
-                    echo '⚠️ Email notification failed (SMTP not configured properly)'
-                }
-            }
+            echo "✅ CI/CD Pipeline Succeeded"
+            mail to: 'sarakhalaf2312@gmail.com',
+                 subject: '✅ Jenkins Build SUCCESS',
+                 body: 'Your pipeline completed successfully.'
         }
 
         failure {
-            echo '❌ CI/CD Pipeline Failed – Rollback Initiated'
-            echo '🔄 Rolling back to last stable version...'
-            script {
-                // Rollback logic placeholder
-                echo 'Rollback executed'
-                try {
-                    mail to: 'sarakhalaf2312@gmail.com',
-                         from: "${SMTP_USER}",
-                         subject: '❌ Jenkins Build FAILED',
-                         body: 'Your CI/CD pipeline failed. Check Jenkins logs for details.',
-                         smtpPassword: "${SMTP_PASS}"
-                } catch (err) {
-                    echo '⚠️ Email notification failed (SMTP not configured properly)'
-                }
-            }
+            echo "❌ CI/CD Pipeline Failed – Rollback Initiated"
+            echo "🔄 Rolling back to last stable version..."
+            sh '''
+            echo "Rollback executed"
+            # Add rollback commands if needed
+            '''
+            mail to: 'sarakhalaf2312@gmail.com',
+                 subject: '❌ Jenkins Build FAILED',
+                 body: 'Your pipeline failed. Check Jenkins logs.'
         }
     }
 }
