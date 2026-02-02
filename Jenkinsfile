@@ -83,8 +83,8 @@ pipeline {
             steps {
                 sh '''
                 cd front
-                npm install -g serve
-                serve -s dist/front -l 4200 &
+                npm i
+                ng serve
                 '''
             }
         }
