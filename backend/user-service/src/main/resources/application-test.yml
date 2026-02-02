@@ -1,12 +1,40 @@
+# =============================
+# application-test.yml
+# =============================
+
 spring:
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration
+  profiles: test
 
-  main:
-    allow-bean-definition-overriding: true
+  # === H2 In-Memory Database for SQL services ===
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
 
+  # === MongoDB In-Memory for MongoDB services ===
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/testdb
+
+# === Logging ===
 logging:
   level:
-    root: WARN
+    root: INFO
+    org.springframework: INFO
+    com.yourcompany: DEBUG
+
+# === Eureka / Discovery Config for tests ===
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+
+# === Other service-specific overrides ===
+server:
+  port: 0  # Random port for tests
