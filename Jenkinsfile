@@ -11,12 +11,21 @@ pipeline {
         FRONTEND_DIR = "front"
     }
 
+    options {
+        skipDefaultCheckout(false)
+    }
+
     stages {
 
-        stage('Checkout Code') {
+        stage('Checkout Source Code') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/saraAbdulla23/mr-jenk.git'
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/master']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/saraAbdulla23/mr-jenk.git'
+                    ]]
+                ])
             }
         }
 
@@ -59,16 +68,14 @@ pipeline {
 
         stage('Deploy Backend') {
             steps {
-                script {
-                    sh '''
-                    for service in discovery-service api-gateway user-service product-service media-service
-                    do
-                      cd backend/$service
-                      mvn spring-boot:run &
-                      cd -
-                    done
-                    '''
-                }
+                sh '''
+                for service in discovery-service api-gateway user-service product-service media-service
+                do
+                  cd backend/$service
+                  mvn spring-boot:run &
+                  cd -
+                done
+                '''
             }
         }
 
@@ -85,15 +92,15 @@ pipeline {
 
     post {
         success {
-            mail to: 'sarakhalaf2312@gmail.com',
+            mail to: 'team@example.com',
                  subject: '✅ Jenkins Build Successful',
-                 body: 'The CI/CD pipeline completed successfully.'
+                 body: 'CI/CD pipeline completed successfully.'
         }
 
         failure {
-            mail to: 'sarakhalaf2312@gmail.com',
+            mail to: 'team@example.com',
                  subject: '❌ Jenkins Build Failed',
-                 body: 'The pipeline failed. Please check Jenkins logs.'
+                 body: 'Pipeline failed. Check Jenkins console output.'
         }
     }
 }
