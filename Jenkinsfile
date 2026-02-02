@@ -13,6 +13,7 @@ pipeline {
 
     options {
         skipDefaultCheckout(false)
+        timestamps()
     }
 
     stages {
@@ -42,6 +43,7 @@ pipeline {
 
                     for (service in services) {
                         dir("${BACKEND_DIR}/${service}") {
+                            echo "Building and testing ${service}..."
                             sh 'mvn clean test'
                         }
                     }
@@ -52,6 +54,7 @@ pipeline {
         stage('Frontend - Install & Test') {
             steps {
                 dir("${FRONTEND_DIR}") {
+                    echo "Installing dependencies and running tests..."
                     sh 'npm install'
                     sh 'ng test --watch=false --browsers=ChromeHeadless'
                 }
@@ -61,31 +64,23 @@ pipeline {
         stage('Frontend - Build') {
             steps {
                 dir("${FRONTEND_DIR}") {
+                    echo "Building frontend for production..."
                     sh 'ng build --configuration production'
                 }
             }
         }
 
-        stage('Deploy Backend') {
+        // Optional: backend deployment (local/dev)
+        stage('Deploy Backend (Optional)') {
             steps {
-                sh '''
-                for service in discovery-service api-gateway user-service product-service media-service
-                do
-                  cd backend/$service
-                  mvn spring-boot:run &
-                  cd -
-                done
-                '''
+                echo "Skipping backend deployment in CI/CD. Deploy manually or via Docker/K8s."
             }
         }
 
-        stage('Deploy Frontend') {
+        // Optional: frontend deployment (local/dev)
+        stage('Deploy Frontend (Optional)') {
             steps {
-                sh '''
-                cd front
-                npm i
-                ng serve
-                '''
+                echo "Skipping frontend serve in CI/CD. Use built files from dist/ for deployment."
             }
         }
     }
