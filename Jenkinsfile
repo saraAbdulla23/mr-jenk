@@ -1,76 +1,88 @@
 pipeline {
     agent any
 
+    tools {
+        jdk 'Java17'
+        maven 'Maven3'
+        nodejs 'Node18'
+    }
+
     environment {
-        // Add environment variables here if needed
-        NODE_ENV = 'production'
+        BACKEND_DIR = "backend"
+        FRONTEND_DIR = "front"
     }
 
     stages {
 
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
-                checkout scm
+                git branch: 'main',
+                    url: 'https://github.com/your-username/your-repo.git'
             }
         }
 
-        stage('Frontend Build') {
-            agent {
-                docker { image 'node:20' } // Node.js for frontend
-            }
+        stage('Backend - Build & Test') {
             steps {
-                dir('front') {
-                    sh '''
-                    echo "📦 Installing frontend dependencies"
-                    npm install
-                    echo "🚀 Building frontend"
-                    npm run build
-                    '''
+                script {
+                    def services = [
+                        'discovery-service',
+                        'api-gateway',
+                        'user-service',
+                        'product-service',
+                        'media-service'
+                    ]
+
+                    for (service in services) {
+                        dir("${BACKEND_DIR}/${service}") {
+                            sh 'mvn clean test'
+                        }
+                    }
                 }
             }
         }
 
-        stage('Frontend Tests') {
-            agent {
-                docker { image 'node:20' }
-            }
+        stage('Frontend - Install & Test') {
             steps {
-                dir('front') {
-                    sh '''
-                    echo "🧪 Running frontend tests"
-                    npm test
-                    '''
+                dir("${FRONTEND_DIR}") {
+                    sh 'npm install'
+                    sh 'ng test --watch=false --browsers=ChromeHeadless'
                 }
             }
         }
 
-        stage('Backend Build') {
+        stage('Frontend - Build') {
             steps {
-                dir('back') {
-                    sh '''
-                    echo "🛠 Building backend"
-                    # Add your backend build commands here
-                    '''
+                dir("${FRONTEND_DIR}") {
+                    sh 'ng build --configuration production'
                 }
             }
         }
 
-        stage('Backend Tests') {
+        stage('Deploy Backend') {
             steps {
-                dir('back') {
-                    sh '''
-                    echo "🧪 Running backend tests"
-                    # Add your backend test commands here
-                    '''
+                script {
+                    try {
+                        sh '''
+                        for service in discovery-service api-gateway user-service product-service media-service
+                        do
+                          cd backend/$service
+                          mvn spring-boot:run &
+                          cd -
+                        done
+                        '''
+                    } catch (Exception e) {
+                        error "Backend deployment failed"
+                    }
                 }
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy Frontend') {
             steps {
                 sh '''
-                echo "🚀 Deploying application"
-                # Add your deployment commands here
+                cd front
+                npm install -g serve
+                serve -s dist/front -l 4200 &
                 '''
             }
         }
@@ -78,22 +90,15 @@ pipeline {
 
     post {
         success {
-            echo "✅ CI/CD Pipeline Succeeded"
-            mail to: 'sarakhalaf2312@gmail.com',
-                 subject: '✅ Jenkins Build SUCCESS',
-                 body: 'Your pipeline completed successfully.'
+            mail to: 'team@example.com',
+                 subject: '✅ Jenkins Build Successful',
+                 body: 'The CI/CD pipeline completed successfully.'
         }
 
         failure {
-            echo "❌ CI/CD Pipeline Failed – Rollback Initiated"
-            echo "🔄 Rolling back to last stable version..."
-            sh '''
-            echo "Rollback executed"
-            # Add rollback commands if needed
-            '''
-            mail to: 'sarakhalaf2312@gmail.com',
-                 subject: '❌ Jenkins Build FAILED',
-                 body: 'Your pipeline failed. Check Jenkins logs.'
+            mail to: 'team@example.com',
+                 subject: '❌ Jenkins Build Failed',
+                 body: 'The pipeline failed. Please check Jenkins logs.'
         }
     }
 }
