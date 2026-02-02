@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     tools {
-        maven 'Maven3'
-        nodejs 'Node18'
+        maven 'maven-3'
+        nodejs 'node-18'
     }
 
     environment {
@@ -16,7 +16,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/your-username/your-repo.git'
+                    url: 'https://github.com/saraAbdulla23/mr-jenk.git'
             }
         }
 
@@ -60,18 +60,14 @@ pipeline {
         stage('Deploy Backend') {
             steps {
                 script {
-                    try {
-                        sh '''
-                        for service in discovery-service api-gateway user-service product-service media-service
-                        do
-                          cd backend/$service
-                          mvn spring-boot:run &
-                          cd -
-                        done
-                        '''
-                    } catch (Exception e) {
-                        error "Backend deployment failed"
-                    }
+                    sh '''
+                    for service in discovery-service api-gateway user-service product-service media-service
+                    do
+                      cd backend/$service
+                      mvn spring-boot:run &
+                      cd -
+                    done
+                    '''
                 }
             }
         }
