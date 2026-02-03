@@ -4,7 +4,7 @@ pipeline {
     environment {
         BACKEND_DIR = "backend"
         FRONTEND_DIR = "front"
-        MVN_OPTS = "-B -Dmaven.repo.local=$WORKSPACE/.m2/repository"
+        MVN_LOCAL_REPO = "$WORKSPACE/.m2/repository"
     }
 
     options {
@@ -77,7 +77,7 @@ pipeline {
 
     post {
         always {
-            cleanWs()   // <-- fixed, no node {} wrapper
+            cleanWs()
         }
 
         success {
@@ -100,8 +100,9 @@ pipeline {
 def buildBackend(String dirPath) {
     dir(dirPath) {
         detectJava()
+        detectMaven()
         echo "Building and testing ${dirPath}..."
-        sh "mvn clean test ${MVN_OPTS}"
+        sh "mvn clean test -B -Dmaven.repo.local=${env.MVN_LOCAL_REPO}"
         archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
     }
 }
@@ -118,6 +119,28 @@ def detectJava() {
             export JAVA_HOME PATH
         fi
         java -version
+    '''
+}
+
+// ---------------------------
+// Utility: Detect Maven
+// ---------------------------
+def detectMaven() {
+    sh '''
+        if ! command -v mvn &> /dev/null; then
+            echo "Maven not found! Trying to auto-detect..."
+            if [ -d "/usr/share/maven/bin" ]; then
+                PATH=/usr/share/maven/bin:$PATH
+            elif [ -d "/opt/maven/bin" ]; then
+                PATH=/opt/maven/bin:$PATH
+            fi
+            export PATH
+        fi
+        if ! command -v mvn &> /dev/null; then
+            echo "ERROR: Maven still not found!"
+            exit 1
+        fi
+        mvn -v
     '''
 }
 
