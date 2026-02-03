@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        jdk 'jdk-21'      // Must match Java 21 installed on Jenkins
+        jdk 'jdk-22'      // Must match Java 21 installed on Jenkins
         maven 'maven-3'
         nodejs 'node-18'
     }
