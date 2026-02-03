@@ -2,86 +2,102 @@ pipeline {
     agent any
 
     tools {
-        jdk 'jdk-22'      // Must match your JDK installation name in Jenkins
-        maven 'maven-3'   // Must match your Maven installation name in Jenkins
-        nodejs 'node-18'  // Must match Node.js installation name in Jenkins
+        maven 'maven-3'        // Jenkins Maven installation name
+        nodejs 'node-18'       // Jenkins Node.js installation name
     }
 
     environment {
+        JAVA_HOME = "/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home"
+        PATH = "${JAVA_HOME}/bin:${tool 'maven-3'}/bin:${env.PATH}"
         BACKEND_DIR = "backend"
         FRONTEND_DIR = "front"
         MVN_OPTS = "-B -Dmaven.repo.local=$WORKSPACE/.m2/repository"
-        MVN_HOME = tool name: 'maven-3', type: 'maven'
-        PATH = "${env.MVN_HOME}/bin:${env.PATH}"
+        ARTIFACTS_DIR = "$WORKSPACE/artifacts"
     }
 
     options {
         skipDefaultCheckout(false)
         timestamps()
         timeout(time: 60, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        parallelsAlwaysFailFast()
     }
 
     stages {
 
         stage('Checkout Source Code') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: '*/master']],
-                    userRemoteConfigs: [[
-                        url: 'https://github.com/saraAbdulla23/mr-jenk.git'
-                    ]]
+                checkout([$class: 'GitSCM',
+                          branches: [[name: '*/master']],
+                          userRemoteConfigs: [[url: 'https://github.com/saraAbdulla23/mr-jenk.git']]
                 ])
             }
         }
 
         stage('Backend - Build & Test') {
-            parallel {
+            parallel failFast: true, stages: [
+
                 stage('Discovery Service') {
                     steps {
                         dir("${BACKEND_DIR}/discovery-service") {
-                            echo "Building and testing discovery-service..."
-                            sh "mvn clean test -Dspring.profiles.active=test $MVN_OPTS"
+                            withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
+                                echo "Building and testing discovery-service..."
+                                sh "mvn clean test $MVN_OPTS"
+                                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+                            }
                         }
                     }
-                }
+                },
 
                 stage('API Gateway') {
                     steps {
                         dir("${BACKEND_DIR}/api-gateway") {
-                            echo "Building and testing api-gateway..."
-                            sh "mvn clean test -Dspring.profiles.active=test $MVN_OPTS"
+                            withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
+                                echo "Building and testing api-gateway..."
+                                sh "mvn clean test $MVN_OPTS"
+                                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+                            }
                         }
                     }
-                }
+                },
 
                 stage('User Service') {
                     steps {
                         dir("${BACKEND_DIR}/user-service") {
-                            echo "Building and testing user-service..."
-                            sh "mvn clean test -Dspring.profiles.active=test $MVN_OPTS"
+                            withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
+                                echo "Building and testing user-service..."
+                                sh "mvn clean test $MVN_OPTS"
+                                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+                            }
                         }
                     }
-                }
+                },
 
                 stage('Product Service') {
                     steps {
                         dir("${BACKEND_DIR}/product-service") {
-                            echo "Building and testing product-service..."
-                            sh "mvn clean test -Dspring.profiles.active=test $MVN_OPTS"
+                            withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
+                                echo "Building and testing product-service..."
+                                sh "mvn clean test $MVN_OPTS"
+                                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+                            }
                         }
                     }
-                }
+                },
 
                 stage('Media Service') {
                     steps {
                         dir("${BACKEND_DIR}/media-service") {
-                            echo "Building and testing media-service..."
-                            sh "mvn clean test -Dspring.profiles.active=test $MVN_OPTS"
+                            withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
+                                echo "Building and testing media-service..."
+                                sh "mvn clean test $MVN_OPTS"
+                                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+                            }
                         }
                     }
                 }
-            }
+
+            ]
         }
 
         stage('Frontend - Install & Test') {
@@ -100,34 +116,44 @@ pipeline {
                 dir("${FRONTEND_DIR}") {
                     echo "Building Angular frontend for production..."
                     sh 'ng build --configuration production'
+                    archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
                 }
             }
         }
 
         stage('Deploy Backend (Optional)') {
             steps {
-                echo "Skipping backend deployment in CI/CD. Use Docker/K8s for production deployment."
+                echo "Skipping backend deployment in CI/CD."
             }
         }
 
         stage('Deploy Frontend (Optional)') {
             steps {
-                echo "Skipping frontend serve in CI/CD. Use built files from dist/ for deployment."
+                echo "Skipping frontend deployment in CI/CD."
             }
         }
     }
 
     post {
+        always {
+            echo "Cleaning up workspace..."
+            cleanWs()
+        }
+
         success {
             mail to: 'sarakhalaf2312@gmail.com',
                  subject: '✅ Jenkins Build Successful',
-                 body: 'CI/CD pipeline completed successfully.'
+                 body: 'CI/CD pipeline completed successfully. All backend services and frontend built.'
         }
 
         failure {
-            mail to: 'sarakhalaf2312@gmail.com',
-                 subject: '❌ Jenkins Build Failed',
-                 body: 'Pipeline failed. Check Jenkins console output.'
+            script {
+                def failedStages = currentBuild.rawBuild.getActions(hudson.model.ResultAction.class)
+                    .collect { it.buildResult.toString() }
+                mail to: 'sarakhalaf2312@gmail.com',
+                     subject: '❌ Jenkins Build Failed',
+                     body: "Pipeline failed. Check Jenkins console output for failed stages.\nFailed stages: ${failedStages}"
+            }
         }
     }
 }
