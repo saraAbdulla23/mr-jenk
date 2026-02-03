@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven-3'        // Jenkins Maven installation name
-        nodejs 'node-18'       // Jenkins Node.js installation name
+        maven 'maven-3'
+        nodejs 'node-18'
     }
 
     environment {
@@ -12,7 +12,6 @@ pipeline {
         BACKEND_DIR = "backend"
         FRONTEND_DIR = "front"
         MVN_OPTS = "-B -Dmaven.repo.local=$WORKSPACE/.m2/repository"
-        ARTIFACTS_DIR = "$WORKSPACE/artifacts"
     }
 
     options {
@@ -35,69 +34,57 @@ pipeline {
         }
 
         stage('Backend - Build & Test') {
-            parallel failFast: true, stages: [
-
-                stage('Discovery Service') {
-                    steps {
-                        dir("${BACKEND_DIR}/discovery-service") {
-                            withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
-                                echo "Building and testing discovery-service..."
-                                sh "mvn clean test $MVN_OPTS"
-                                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+            steps {
+                script {
+                    parallel(
+                        "Discovery Service": {
+                            dir("${BACKEND_DIR}/discovery-service") {
+                                withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
+                                    echo "Building and testing discovery-service..."
+                                    sh "mvn clean test $MVN_OPTS"
+                                    archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+                                }
+                            }
+                        },
+                        "API Gateway": {
+                            dir("${BACKEND_DIR}/api-gateway") {
+                                withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
+                                    echo "Building and testing api-gateway..."
+                                    sh "mvn clean test $MVN_OPTS"
+                                    archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+                                }
+                            }
+                        },
+                        "User Service": {
+                            dir("${BACKEND_DIR}/user-service") {
+                                withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
+                                    echo "Building and testing user-service..."
+                                    sh "mvn clean test $MVN_OPTS"
+                                    archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+                                }
+                            }
+                        },
+                        "Product Service": {
+                            dir("${BACKEND_DIR}/product-service") {
+                                withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
+                                    echo "Building and testing product-service..."
+                                    sh "mvn clean test $MVN_OPTS"
+                                    archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+                                }
+                            }
+                        },
+                        "Media Service": {
+                            dir("${BACKEND_DIR}/media-service") {
+                                withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
+                                    echo "Building and testing media-service..."
+                                    sh "mvn clean test $MVN_OPTS"
+                                    archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+                                }
                             }
                         }
-                    }
-                },
-
-                stage('API Gateway') {
-                    steps {
-                        dir("${BACKEND_DIR}/api-gateway") {
-                            withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
-                                echo "Building and testing api-gateway..."
-                                sh "mvn clean test $MVN_OPTS"
-                                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-                            }
-                        }
-                    }
-                },
-
-                stage('User Service') {
-                    steps {
-                        dir("${BACKEND_DIR}/user-service") {
-                            withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
-                                echo "Building and testing user-service..."
-                                sh "mvn clean test $MVN_OPTS"
-                                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-                            }
-                        }
-                    }
-                },
-
-                stage('Product Service') {
-                    steps {
-                        dir("${BACKEND_DIR}/product-service") {
-                            withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
-                                echo "Building and testing product-service..."
-                                sh "mvn clean test $MVN_OPTS"
-                                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-                            }
-                        }
-                    }
-                },
-
-                stage('Media Service') {
-                    steps {
-                        dir("${BACKEND_DIR}/media-service") {
-                            withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
-                                echo "Building and testing media-service..."
-                                sh "mvn clean test $MVN_OPTS"
-                                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-                            }
-                        }
-                    }
+                    )
                 }
-
-            ]
+            }
         }
 
         stage('Frontend - Install & Test') {
@@ -147,13 +134,9 @@ pipeline {
         }
 
         failure {
-            script {
-                def failedStages = currentBuild.rawBuild.getActions(hudson.model.ResultAction.class)
-                    .collect { it.buildResult.toString() }
-                mail to: 'sarakhalaf2312@gmail.com',
-                     subject: '❌ Jenkins Build Failed',
-                     body: "Pipeline failed. Check Jenkins console output for failed stages.\nFailed stages: ${failedStages}"
-            }
+            mail to: 'sarakhalaf2312@gmail.com',
+                 subject: '❌ Jenkins Build Failed',
+                 body: 'Pipeline failed. Check Jenkins console output for failed stages.'
         }
     }
 }
