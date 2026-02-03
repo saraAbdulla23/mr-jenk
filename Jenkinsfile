@@ -2,13 +2,14 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven-3'
-        nodejs 'node-18'
+        maven 'maven-3'         // Name of Maven installation in Jenkins Global Tool Config
+        nodejs 'node-18'        // Name of NodeJS installation in Jenkins Global Tool Config
     }
 
     environment {
-        JAVA_HOME = "/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home"
-        PATH = "${JAVA_HOME}/bin:${tool 'maven-3'}/bin:${env.PATH}"
+        // Auto-detect JAVA_HOME or fallback to your Mac path
+        JAVA_HOME = "${tool 'jdk-22'}"
+        PATH = "${JAVA_HOME}/bin:${tool 'maven-3'}/bin:${tool 'node-18'}/bin:${env.PATH}"
         BACKEND_DIR = "backend"
         FRONTEND_DIR = "front"
         MVN_OPTS = "-B -Dmaven.repo.local=$WORKSPACE/.m2/repository"
@@ -41,6 +42,7 @@ pipeline {
                             dir("${BACKEND_DIR}/discovery-service") {
                                 withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
                                     echo "Building and testing discovery-service..."
+                                    sh "${JAVA_HOME}/bin/java -version"
                                     sh "mvn clean test $MVN_OPTS"
                                     archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
                                 }
@@ -50,6 +52,7 @@ pipeline {
                             dir("${BACKEND_DIR}/api-gateway") {
                                 withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
                                     echo "Building and testing api-gateway..."
+                                    sh "${JAVA_HOME}/bin/java -version"
                                     sh "mvn clean test $MVN_OPTS"
                                     archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
                                 }
@@ -59,6 +62,7 @@ pipeline {
                             dir("${BACKEND_DIR}/user-service") {
                                 withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
                                     echo "Building and testing user-service..."
+                                    sh "${JAVA_HOME}/bin/java -version"
                                     sh "mvn clean test $MVN_OPTS"
                                     archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
                                 }
@@ -68,6 +72,7 @@ pipeline {
                             dir("${BACKEND_DIR}/product-service") {
                                 withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
                                     echo "Building and testing product-service..."
+                                    sh "${JAVA_HOME}/bin/java -version"
                                     sh "mvn clean test $MVN_OPTS"
                                     archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
                                 }
@@ -77,6 +82,7 @@ pipeline {
                             dir("${BACKEND_DIR}/media-service") {
                                 withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
                                     echo "Building and testing media-service..."
+                                    sh "${JAVA_HOME}/bin/java -version"
                                     sh "mvn clean test $MVN_OPTS"
                                     archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
                                 }
