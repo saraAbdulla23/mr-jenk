@@ -8,9 +8,9 @@ pipeline {
     }
 
     environment {
-        // Set JAVA_HOME dynamically using Jenkins tool installation
-        JAVA_HOME = "${tool 'jdk-22'}"
-        PATH = "${JAVA_HOME}/bin:${tool 'maven-3'}/bin:${tool 'node-18'}/bin:${env.PATH}"
+        // Dynamically set JAVA_HOME from Jenkins tool if available
+        JAVA_HOME = "${tool name: 'jdk-22', type: 'jdk'}"
+        PATH = "${JAVA_HOME}/bin:${tool name: 'maven-3', type: 'maven'}/bin:${tool name: 'node-18', type: 'NodeJS'}/bin:${env.PATH}"
         MVN_OPTS = "-B -Dmaven.repo.local=$WORKSPACE/.m2/repository"
         BACKEND_DIR = "backend"
         FRONTEND_DIR = "front"
@@ -108,8 +108,15 @@ def buildBackend(String dirPath) {
     dir(dirPath) {
         withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
             echo "Building and testing ${dirPath}..."
-            sh "${env.JAVA_HOME}/bin/java -version"
-            sh "mvn clean test ${env.MVN_OPTS}"
+            sh '''
+            if ! command -v java &> /dev/null; then
+                echo "Java not found! Trying to auto-detect..."
+                export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))
+                export PATH=$JAVA_HOME/bin:$PATH
+            fi
+            java -version
+            mvn clean test ${MVN_OPTS}
+            '''
             archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
         }
     }
