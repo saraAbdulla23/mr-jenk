@@ -1,19 +1,10 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'maven-3'        // Jenkins Maven tool name
-        nodejs 'node-18'       // Jenkins NodeJS tool name
-        jdk 'jdk-22'           // Jenkins JDK tool name
-    }
-
     environment {
-        // Dynamically set JAVA_HOME from Jenkins tool if available
-        JAVA_HOME = "${tool name: 'jdk-22', type: 'jdk'}"
-        PATH = "${JAVA_HOME}/bin:${tool name: 'maven-3', type: 'maven'}/bin:${tool name: 'node-18', type: 'NodeJS'}/bin:${env.PATH}"
-        MVN_OPTS = "-B -Dmaven.repo.local=$WORKSPACE/.m2/repository"
         BACKEND_DIR = "backend"
         FRONTEND_DIR = "front"
+        MVN_OPTS = "-B -Dmaven.repo.local=$WORKSPACE/.m2/repository"
     }
 
     options {
@@ -26,6 +17,7 @@ pipeline {
     stages {
 
         stage('Checkout SCM') {
+            agent any
             steps {
                 checkout([$class: 'GitSCM',
                     branches: [[name: '*/master']],
@@ -35,6 +27,11 @@ pipeline {
         }
 
         stage('Backend - Build & Test') {
+            agent any
+            tools {
+                maven 'maven-3'
+                jdk 'jdk-22'
+            }
             steps {
                 script {
                     parallel(
@@ -49,9 +46,14 @@ pipeline {
         }
 
         stage('Frontend - Install & Test') {
+            agent any
+            tools {
+                nodejs 'node-18'
+            }
             steps {
                 dir("${FRONTEND_DIR}") {
                     echo "Installing frontend dependencies..."
+                    detectNode()
                     sh 'npm install'
                     echo "Running frontend tests..."
                     sh 'npx ng test --watch=false --browsers=ChromeHeadless'
@@ -60,9 +62,14 @@ pipeline {
         }
 
         stage('Frontend - Build') {
+            agent any
+            tools {
+                nodejs 'node-18'
+            }
             steps {
                 dir("${FRONTEND_DIR}") {
                     echo "Building Angular frontend..."
+                    detectNode()
                     sh 'npx ng build --configuration production'
                     archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
                 }
@@ -70,12 +77,14 @@ pipeline {
         }
 
         stage('Deploy Backend (Optional)') {
+            agent any
             steps {
                 echo "Skipping backend deployment in CI/CD."
             }
         }
 
         stage('Deploy Frontend (Optional)') {
+            agent any
             steps {
                 echo "Skipping frontend deployment in CI/CD."
             }
@@ -84,7 +93,9 @@ pipeline {
 
     post {
         always {
-            cleanWs()
+            node {
+                cleanWs()
+            }
         }
 
         success {
@@ -106,18 +117,45 @@ pipeline {
 // ---------------------------
 def buildBackend(String dirPath) {
     dir(dirPath) {
-        withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
+        withEnv([
+            "JAVA_HOME=${tool name: 'jdk-22', type: 'jdk'}",
+            "PATH=${tool name: 'jdk-22', type: 'jdk'}/bin:${tool name: 'maven-3', type: 'maven'}/bin:${env.PATH}"
+        ]) {
             echo "Building and testing ${dirPath}..."
-            sh '''
-            if ! command -v java &> /dev/null; then
-                echo "Java not found! Trying to auto-detect..."
-                export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))
-                export PATH=$JAVA_HOME/bin:$PATH
-            fi
-            java -version
-            mvn clean test ${MVN_OPTS}
-            '''
+            detectJava()
+            sh "mvn clean test ${MVN_OPTS}"
             archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
         }
     }
+}
+
+// ---------------------------
+// Utility: Detect Java
+// ---------------------------
+def detectJava() {
+    sh '''
+        if ! command -v java &> /dev/null; then
+            echo "Java not found! Trying to auto-detect..."
+            JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))
+            PATH=$JAVA_HOME/bin:$PATH
+            export JAVA_HOME PATH
+        fi
+        java -version
+    '''
+}
+
+// ---------------------------
+// Utility: Detect NodeJS
+// ---------------------------
+def detectNode() {
+    sh '''
+        if ! command -v node &> /dev/null; then
+            echo "NodeJS not found! Trying to auto-detect..."
+            NODE_HOME=$(dirname $(dirname $(readlink -f $(which node))))
+            PATH=$NODE_HOME/bin:$PATH
+            export NODE_HOME PATH
+        fi
+        node -v
+        npm -v
+    '''
 }
