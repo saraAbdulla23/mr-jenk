@@ -19,7 +19,7 @@ pipeline {
         skipDefaultCheckout(false)
         timestamps()
         timeout(time: 60, unit: 'MINUTES') // Max build time
-        failFast true                       // Stop all parallel branches on failure
+        parallelsAlwaysFailFast()          // ✅ Correct Declarative option for failFast
     }
 
     stages {
@@ -37,7 +37,7 @@ pipeline {
         }
 
         stage('Backend - Build & Test') {
-            parallel failFast: true, stages: [
+            parallel {
                 stage('Discovery Service') {
                     steps {
                         dir("${BACKEND_DIR}/discovery-service") {
@@ -45,7 +45,7 @@ pipeline {
                             sh "${JAVA_HOME}/bin/mvn clean test -Dspring.profiles.active=test $MVN_OPTS"
                         }
                     }
-                },
+                }
 
                 stage('API Gateway') {
                     steps {
@@ -54,7 +54,7 @@ pipeline {
                             sh "${JAVA_HOME}/bin/mvn clean test -Dspring.profiles.active=test $MVN_OPTS"
                         }
                     }
-                },
+                }
 
                 stage('User Service') {
                     steps {
@@ -63,7 +63,7 @@ pipeline {
                             sh "${JAVA_HOME}/bin/mvn clean test -Dspring.profiles.active=test $MVN_OPTS"
                         }
                     }
-                },
+                }
 
                 stage('Product Service') {
                     steps {
@@ -72,7 +72,7 @@ pipeline {
                             sh "${JAVA_HOME}/bin/mvn clean test -Dspring.profiles.active=test $MVN_OPTS"
                         }
                     }
-                },
+                }
 
                 stage('Media Service') {
                     steps {
@@ -82,7 +82,7 @@ pipeline {
                         }
                     }
                 }
-            ]
+            }
         }
 
         stage('Frontend - Install & Test') {
