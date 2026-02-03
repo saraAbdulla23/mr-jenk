@@ -17,7 +17,6 @@ pipeline {
     stages {
 
         stage('Checkout SCM') {
-            agent any
             steps {
                 checkout([$class: 'GitSCM',
                     branches: [[name: '*/master']],
@@ -27,11 +26,6 @@ pipeline {
         }
 
         stage('Backend - Build & Test') {
-            agent any
-            tools {
-                maven 'maven-3'
-                jdk 'jdk-22'
-            }
             steps {
                 script {
                     parallel(
@@ -46,10 +40,6 @@ pipeline {
         }
 
         stage('Frontend - Install & Test') {
-            agent any
-            tools {
-                nodejs 'node-18'
-            }
             steps {
                 dir("${FRONTEND_DIR}") {
                     echo "Installing frontend dependencies..."
@@ -62,10 +52,6 @@ pipeline {
         }
 
         stage('Frontend - Build') {
-            agent any
-            tools {
-                nodejs 'node-18'
-            }
             steps {
                 dir("${FRONTEND_DIR}") {
                     echo "Building Angular frontend..."
@@ -77,14 +63,12 @@ pipeline {
         }
 
         stage('Deploy Backend (Optional)') {
-            agent any
             steps {
                 echo "Skipping backend deployment in CI/CD."
             }
         }
 
         stage('Deploy Frontend (Optional)') {
-            agent any
             steps {
                 echo "Skipping frontend deployment in CI/CD."
             }
@@ -93,9 +77,7 @@ pipeline {
 
     post {
         always {
-            node {
-                cleanWs()
-            }
+            cleanWs()   // <-- fixed, no node {} wrapper
         }
 
         success {
@@ -117,15 +99,10 @@ pipeline {
 // ---------------------------
 def buildBackend(String dirPath) {
     dir(dirPath) {
-        withEnv([
-            "JAVA_HOME=${tool name: 'jdk-22', type: 'jdk'}",
-            "PATH=${tool name: 'jdk-22', type: 'jdk'}/bin:${tool name: 'maven-3', type: 'maven'}/bin:${env.PATH}"
-        ]) {
-            echo "Building and testing ${dirPath}..."
-            detectJava()
-            sh "mvn clean test ${MVN_OPTS}"
-            archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-        }
+        detectJava()
+        echo "Building and testing ${dirPath}..."
+        sh "mvn clean test ${MVN_OPTS}"
+        archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
     }
 }
 
