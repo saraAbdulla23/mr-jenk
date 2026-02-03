@@ -2,21 +2,21 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven-3'         // Name of Maven installation in Jenkins Global Tool Config
-        nodejs 'node-18'        // Name of NodeJS installation in Jenkins Global Tool Config
+        maven 'maven-3'        // Jenkins Maven tool name
+        nodejs 'node-18'       // Jenkins NodeJS tool name
+        jdk 'jdk-22'           // Jenkins JDK tool name
     }
 
     environment {
-        // Auto-detect JAVA_HOME or fallback to your Mac path
+        // Set JAVA_HOME dynamically using Jenkins tool installation
         JAVA_HOME = "${tool 'jdk-22'}"
         PATH = "${JAVA_HOME}/bin:${tool 'maven-3'}/bin:${tool 'node-18'}/bin:${env.PATH}"
+        MVN_OPTS = "-B -Dmaven.repo.local=$WORKSPACE/.m2/repository"
         BACKEND_DIR = "backend"
         FRONTEND_DIR = "front"
-        MVN_OPTS = "-B -Dmaven.repo.local=$WORKSPACE/.m2/repository"
     }
 
     options {
-        skipDefaultCheckout(false)
         timestamps()
         timeout(time: 60, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10'))
@@ -25,11 +25,11 @@ pipeline {
 
     stages {
 
-        stage('Checkout Source Code') {
+        stage('Checkout SCM') {
             steps {
                 checkout([$class: 'GitSCM',
-                          branches: [[name: '*/master']],
-                          userRemoteConfigs: [[url: 'https://github.com/saraAbdulla23/mr-jenk.git']]
+                    branches: [[name: '*/master']],
+                    userRemoteConfigs: [[url: 'https://github.com/saraAbdulla23/mr-jenk.git']]
                 ])
             }
         }
@@ -38,56 +38,11 @@ pipeline {
             steps {
                 script {
                     parallel(
-                        "Discovery Service": {
-                            dir("${BACKEND_DIR}/discovery-service") {
-                                withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
-                                    echo "Building and testing discovery-service..."
-                                    sh "${JAVA_HOME}/bin/java -version"
-                                    sh "mvn clean test $MVN_OPTS"
-                                    archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-                                }
-                            }
-                        },
-                        "API Gateway": {
-                            dir("${BACKEND_DIR}/api-gateway") {
-                                withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
-                                    echo "Building and testing api-gateway..."
-                                    sh "${JAVA_HOME}/bin/java -version"
-                                    sh "mvn clean test $MVN_OPTS"
-                                    archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-                                }
-                            }
-                        },
-                        "User Service": {
-                            dir("${BACKEND_DIR}/user-service") {
-                                withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
-                                    echo "Building and testing user-service..."
-                                    sh "${JAVA_HOME}/bin/java -version"
-                                    sh "mvn clean test $MVN_OPTS"
-                                    archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-                                }
-                            }
-                        },
-                        "Product Service": {
-                            dir("${BACKEND_DIR}/product-service") {
-                                withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
-                                    echo "Building and testing product-service..."
-                                    sh "${JAVA_HOME}/bin/java -version"
-                                    sh "mvn clean test $MVN_OPTS"
-                                    archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-                                }
-                            }
-                        },
-                        "Media Service": {
-                            dir("${BACKEND_DIR}/media-service") {
-                                withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
-                                    echo "Building and testing media-service..."
-                                    sh "${JAVA_HOME}/bin/java -version"
-                                    sh "mvn clean test $MVN_OPTS"
-                                    archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-                                }
-                            }
-                        }
+                        "Discovery Service": { buildBackend("${BACKEND_DIR}/discovery-service") },
+                        "API Gateway": { buildBackend("${BACKEND_DIR}/api-gateway") },
+                        "User Service": { buildBackend("${BACKEND_DIR}/user-service") },
+                        "Product Service": { buildBackend("${BACKEND_DIR}/product-service") },
+                        "Media Service": { buildBackend("${BACKEND_DIR}/media-service") }
                     )
                 }
             }
@@ -99,7 +54,7 @@ pipeline {
                     echo "Installing frontend dependencies..."
                     sh 'npm install'
                     echo "Running frontend tests..."
-                    sh 'ng test --watch=false --browsers=ChromeHeadless'
+                    sh 'npx ng test --watch=false --browsers=ChromeHeadless'
                 }
             }
         }
@@ -107,8 +62,8 @@ pipeline {
         stage('Frontend - Build') {
             steps {
                 dir("${FRONTEND_DIR}") {
-                    echo "Building Angular frontend for production..."
-                    sh 'ng build --configuration production'
+                    echo "Building Angular frontend..."
+                    sh 'npx ng build --configuration production'
                     archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
                 }
             }
@@ -129,7 +84,6 @@ pipeline {
 
     post {
         always {
-            echo "Cleaning up workspace..."
             cleanWs()
         }
 
@@ -143,6 +97,20 @@ pipeline {
             mail to: 'sarakhalaf2312@gmail.com',
                  subject: '❌ Jenkins Build Failed',
                  body: 'Pipeline failed. Check Jenkins console output for failed stages.'
+        }
+    }
+}
+
+// ---------------------------
+// Shared backend build function
+// ---------------------------
+def buildBackend(String dirPath) {
+    dir(dirPath) {
+        withEnv(["JAVA_HOME=${env.JAVA_HOME}", "PATH=${env.PATH}"]) {
+            echo "Building and testing ${dirPath}..."
+            sh "${env.JAVA_HOME}/bin/java -version"
+            sh "mvn clean test ${env.MVN_OPTS}"
+            archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
         }
     }
 }
