@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven-3'        // Jenkins Maven tool (3.9.12)
+        maven 'maven-3'        // Jenkins Maven tool
         nodejs 'node-18'       // Jenkins NodeJS tool
     }
 
@@ -10,8 +10,8 @@ pipeline {
         BACKEND_DIR    = "backend"
         FRONTEND_DIR   = "front"
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
-        KAFKA_BOOTSTRAP_SERVERS = "embedded" // Force embedded Kafka for CI
-        SPRING_PROFILES_ACTIVE = "test"      // Use test profile in CI
+        SPRING_PROFILES_ACTIVE = "test"  // Use test profile
+        KAFKA_BOOTSTRAP_SERVERS = ""     // Will be set dynamically
     }
 
     options {
@@ -39,6 +39,32 @@ pipeline {
         }
 
         // =============================
+        // Start Embedded Kafka
+        // =============================
+        stage('Start Embedded Kafka') {
+            steps {
+                script {
+                    // Start Kafka container using Testcontainers
+                    KAFKA_CONTAINER_SCRIPT = '''
+                        docker run -d --name ci-kafka -p 9092:9092 \
+                        -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
+                        -e KAFKA_ZOOKEEPER_CONNECT=localhost:2181 \
+                        -e KAFKA_BROKER_ID=1 \
+                        wurstmeister/kafka:2.13-2.8.0
+                    '''
+                    sh KAFKA_CONTAINER_SCRIPT
+
+                    // Wait a few seconds for Kafka to start
+                    sh 'sleep 15'
+
+                    // Set environment variable for Maven builds
+                    env.KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
+                    echo "Kafka running at ${env.KAFKA_BOOTSTRAP_SERVERS}"
+                }
+            }
+        }
+
+        // =============================
         // Backend - Build & Test
         // =============================
         stage('Backend - Build & Test') {
@@ -56,7 +82,7 @@ pipeline {
         }
 
         // =============================
-        // Frontend - Test
+        // Frontend - Install & Test
         // =============================
         stage('Frontend - Install & Test') {
             steps {
@@ -84,27 +110,24 @@ pipeline {
         // =============================
         // Deploy (Optional)
         // =============================
-        stage('Deploy Backend (Optional)') {
-            steps { echo "Skipping backend deployment in CI/CD." }
-        }
-
-        stage('Deploy Frontend (Optional)') {
-            steps { echo "Skipping frontend deployment in CI/CD." }
-        }
+        stage('Deploy Backend (Optional)') { steps { echo "Skipping backend deployment." } }
+        stage('Deploy Frontend (Optional)') { steps { echo "Skipping frontend deployment." } }
     }
 
     // =============================
     // Post actions
     // =============================
     post {
-        always { cleanWs() }
-
+        always {
+            // Stop and remove Kafka container
+            sh 'docker rm -f ci-kafka || true'
+            cleanWs()
+        }
         success {
             mail to: 'sarakhalaf2312@gmail.com',
                  subject: '✅ Jenkins Build Successful',
                  body: 'CI/CD pipeline completed successfully. Backend + Frontend built.'
         }
-
         failure {
             mail to: 'sarakhalaf2312@gmail.com',
                  subject: '❌ Jenkins Build Failed',
@@ -121,7 +144,6 @@ def buildBackend(String dirPath) {
         sh 'java -version'
         sh 'mvn -version'
 
-        // Use the embedded Kafka + test profile environment for CI
         sh """
             mvn clean package \
             -B \
