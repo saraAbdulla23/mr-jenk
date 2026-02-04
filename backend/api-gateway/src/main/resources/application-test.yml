@@ -1,0 +1,36 @@
+# =============================
+# application-test.yml (api-gateway)
+# =============================
+
+spring:
+  profiles:
+    active: test
+
+  main:
+    web-application-type: reactive
+
+# =============================
+# DISABLE EUREKA COMPLETELY
+# =============================
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+spring.cloud.discovery.enabled: false
+
+# =============================
+# SERVER
+# =============================
+server:
+  port: 0
+
+# =============================
+# LOGGING (quiet Eureka spam)
+# =============================
+logging:
+  level:
+    root: INFO
+    com.netflix.discovery: OFF
+    org.springframework.cloud.netflix: OFF

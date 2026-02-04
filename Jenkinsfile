@@ -7,8 +7,8 @@ pipeline {
     }
 
     environment {
-        BACKEND_DIR = "backend"
-        FRONTEND_DIR = "front"
+        BACKEND_DIR    = "backend"
+        FRONTEND_DIR   = "front"
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
     }
 
@@ -21,16 +21,24 @@ pipeline {
 
     stages {
 
+        // =============================
+        // Checkout
+        // =============================
         stage('Checkout SCM') {
             steps {
                 checkout([
                     $class: 'GitSCM',
                     branches: [[name: '*/master']],
-                    userRemoteConfigs: [[url: 'https://github.com/saraAbdulla23/mr-jenk.git']]
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/saraAbdulla23/mr-jenk.git'
+                    ]]
                 ])
             }
         }
 
+        // =============================
+        // Backend (Parallel)
+        // =============================
         stage('Backend - Build & Test') {
             steps {
                 script {
@@ -55,6 +63,9 @@ pipeline {
             }
         }
 
+        // =============================
+        // Frontend - Test
+        // =============================
         stage('Frontend - Install & Test') {
             steps {
                 dir("${FRONTEND_DIR}") {
@@ -67,6 +78,9 @@ pipeline {
             }
         }
 
+        // =============================
+        // Frontend - Build
+        // =============================
         stage('Frontend - Build') {
             steps {
                 dir("${FRONTEND_DIR}") {
@@ -76,6 +90,9 @@ pipeline {
             }
         }
 
+        // =============================
+        // Deploy (Optional)
+        // =============================
         stage('Deploy Backend (Optional)') {
             steps {
                 echo "Skipping backend deployment in CI/CD."
@@ -89,6 +106,9 @@ pipeline {
         }
     }
 
+    // =============================
+    // Post actions
+    // =============================
     post {
         always {
             cleanWs()
@@ -108,20 +128,20 @@ pipeline {
     }
 }
 
-// ---------------------------
-// Shared backend build function
-// ---------------------------
+// =================================================
+// Shared backend build function (CORRECT & SAFE)
+// =================================================
 def buildBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
         sh 'mvn -version'
 
         sh """
-            mvn clean test \
+            mvn clean package \
             -B \
             -Dmaven.repo.local=${env.MVN_LOCAL_REPO}
         """
 
-        archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: true
+        archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false
     }
 }
