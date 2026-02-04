@@ -39,6 +39,14 @@ pipeline {
             }
         }
 
+        stage('Write Test Config') {
+            steps {
+                script {
+                    writeTestConfig()
+                }
+            }
+        }
+
         stage('Backend - Build & Test') {
             steps {
                 script {
@@ -148,11 +156,12 @@ def deployBackend(String dirPath) {
             cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
         """
 
-        // Restart service (systemd example)
+        // Restart service with rollback
+        def latestBackup = sh(script: "ls -t ${env.BACKUP_DIR}/${serviceName} | head -n1", returnStdout: true).trim()
         sh """
             systemctl restart ${serviceName} || (
                 echo 'Deployment failed, rolling back...'
-                cp ${env.BACKUP_DIR}/${serviceName}/$(ls -t ${env.BACKUP_DIR}/${serviceName} | head -n1) ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
+                cp ${env.BACKUP_DIR}/${serviceName}/${latestBackup} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
                 systemctl restart ${serviceName}
                 exit 1
             )
@@ -178,7 +187,7 @@ def deployFrontend(String dirPath) {
             cp -r dist/* ${env.FRONTEND_DEPLOY_DIR}/
         """
 
-        // Optional: restart frontend server (nginx example)
+        // Restart frontend server with rollback
         sh """
             systemctl restart nginx || (
                 echo 'Frontend deployment failed, rolling back...'
@@ -189,4 +198,107 @@ def deployFrontend(String dirPath) {
             )
         """
     }
+}
+
+// =====================================================
+// Write Global Spring Test Configuration (Embedded Kafka/MongoDB)
+// =====================================================
+def writeTestConfig() {
+    writeFile file: 'application-test.yml', text: """
+spring:
+  main:
+    allow-bean-definition-overriding: true
+
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create-drop
+
+  kafka:
+    embedded:
+      enabled: true
+      partitions: 1
+    consumer:
+      group-id: test-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+  data:
+    mongodb:
+      host: localhost
+      port: 0
+      database: test
+      uri: \${MONGO_EMBEDDED_URI:mongodb://localhost:0/test}
+
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+
+server:
+  port: 0
+
+logging:
+  level:
+    root: INFO
+    org.springframework.data.mongodb: WARN
+    org.mongodb.driver: WARN
+    org.apache.kafka: DEBUG
+
+# User Service
+user-service:
+  spring:
+    datasource:
+      url: jdbc:h2:mem:userdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      driver-class-name: org.h2.Driver
+      username: sa
+      password:
+    jpa:
+      database-platform: org.hibernate.dialect.H2Dialect
+      hibernate:
+        ddl-auto: create-drop
+    data:
+      mongodb:
+        database: user_service_test
+        uri: \${MONGO_EMBEDDED_URI:mongodb://localhost:0/user_service_test}
+
+# Product Service
+product-service:
+  spring:
+    datasource:
+      url: jdbc:h2:mem:productdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      driver-class-name: org.h2.Driver
+      username: sa
+      password:
+    jpa:
+      database-platform: org.hibernate.dialect.H2Dialect
+      hibernate:
+        ddl-auto: create-drop
+    data:
+      mongodb:
+        database: product_service_test
+        uri: \${MONGO_EMBEDDED_URI:mongodb://localhost:0/product_service_test}
+
+# Media Service
+media-service:
+  spring:
+    datasource:
+      url: jdbc:h2:mem:mediadb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      driver-class-name: org.h2.Driver
+      username: sa
+      password:
+    jpa:
+      database-platform: org.hibernate.dialect.H2Dialect
+      hibernate:
+        ddl-auto: create-drop
+    data:
+      mongodb:
+        database: media_service_test
+        uri: \${MONGO_EMBEDDED_URI:mongodb://localhost:0/media_service_test}
+"""
 }
