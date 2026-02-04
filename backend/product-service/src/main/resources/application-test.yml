@@ -11,7 +11,7 @@ spring:
       ddl-auto: create-drop
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}  # Injected dynamically
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}  # Optional override
     consumer:
       group-id: test-group
       auto-offset-reset: earliest
@@ -28,8 +28,8 @@ spring:
   data:
     mongodb:
       host: localhost
-      port: 0
-      database: test  # Default fallback
+      port: 0  # Let Flapdoodle pick a free port automatically
+      database: test
       uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:27017/test}
 
 # Disable Eureka globally

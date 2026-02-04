@@ -11,8 +11,6 @@ pipeline {
         FRONTEND_DIR   = "front"
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
         SPRING_PROFILES_ACTIVE = "test"
-        KAFKA_BOOTSTRAP_SERVERS = "" // Set dynamically
-        MONGO_EMBEDDED_URI = ""      // Set dynamically
     }
 
     options {
@@ -33,39 +31,6 @@ pipeline {
                         url: 'https://github.com/saraAbdulla23/mr-jenk.git'
                     ]]
                 ])
-            }
-        }
-
-        stage('Start Embedded Kafka') {
-            steps {
-                script {
-                    echo "Starting Kafka..."
-                    sh '''
-                        docker run -d --name ci-kafka -p 9092:9092 \
-                        -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
-                        -e KAFKA_ZOOKEEPER_CONNECT=localhost:2181 \
-                        -e KAFKA_BROKER_ID=1 \
-                        wurstmeister/kafka:2.13-2.8.0
-                        sleep 15
-                    '''
-                    env.KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
-                    echo "Kafka running at ${env.KAFKA_BOOTSTRAP_SERVERS}"
-                }
-            }
-        }
-
-        stage('Start Embedded MongoDB') {
-            steps {
-                script {
-                    echo "Starting MongoDB..."
-                    sh 'docker run -d --name ci-mongo -P mongo:7.0.4'
-                    def port = sh(
-                        script: "docker port ci-mongo 27017 | cut -d':' -f2",
-                        returnStdout: true
-                    ).trim()
-                    env.MONGO_EMBEDDED_URI = "mongodb://localhost:${port}"
-                    echo "MongoDB running at ${env.MONGO_EMBEDDED_URI}"
-                }
             }
         }
 
@@ -108,11 +73,7 @@ pipeline {
     }
 
     post {
-        always {
-            sh 'docker rm -f ci-kafka || true'
-            sh 'docker rm -f ci-mongo || true'
-            cleanWs()
-        }
+        always { cleanWs() }
         success {
             mail to: 'sarakhalaf2312@gmail.com',
                  subject: '✅ Jenkins Build Successful',
@@ -126,20 +87,19 @@ pipeline {
     }
 }
 
-// ==========================================
+// =================================================
 // Shared backend build function
-// ==========================================
+// =================================================
 def buildBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
         sh 'mvn -version'
 
+        // Embedded Kafka & MongoDB are used automatically via test dependencies
         sh """
             mvn clean package \
             -B \
             -Dmaven.repo.local=${env.MVN_LOCAL_REPO} \
-            -Dspring.kafka.bootstrap-servers=${env.KAFKA_BOOTSTRAP_SERVERS} \
-            -Dspring.data.mongodb.uri=${env.MONGO_EMBEDDED_URI} \
             -Dspring.profiles.active=${env.SPRING_PROFILES_ACTIVE}
         """
 
