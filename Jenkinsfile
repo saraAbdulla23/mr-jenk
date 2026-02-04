@@ -10,6 +10,7 @@ pipeline {
         BACKEND_DIR    = "backend"
         FRONTEND_DIR   = "front"
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
+        KAFKA_BOOTSTRAP_SERVERS = "embedded" // Force embedded Kafka for CI
     }
 
     options {
@@ -37,27 +38,17 @@ pipeline {
         }
 
         // =============================
-        // Backend (Parallel)
+        // Backend - Build & Test
         // =============================
         stage('Backend - Build & Test') {
             steps {
                 script {
                     parallel(
-                        "Discovery Service": {
-                            buildBackend("${BACKEND_DIR}/discovery-service")
-                        },
-                        "API Gateway": {
-                            buildBackend("${BACKEND_DIR}/api-gateway")
-                        },
-                        "User Service": {
-                            buildBackend("${BACKEND_DIR}/user-service")
-                        },
-                        "Product Service": {
-                            buildBackend("${BACKEND_DIR}/product-service")
-                        },
-                        "Media Service": {
-                            buildBackend("${BACKEND_DIR}/media-service")
-                        }
+                        "Discovery Service": { buildBackend("${BACKEND_DIR}/discovery-service") },
+                        "API Gateway":       { buildBackend("${BACKEND_DIR}/api-gateway") },
+                        "User Service":      { buildBackend("${BACKEND_DIR}/user-service") },
+                        "Product Service":   { buildBackend("${BACKEND_DIR}/product-service") },
+                        "Media Service":     { buildBackend("${BACKEND_DIR}/media-service") }
                     )
                 }
             }
@@ -71,7 +62,6 @@ pipeline {
                 dir("${FRONTEND_DIR}") {
                     sh 'node -v'
                     sh 'npm -v'
-
                     sh 'npm install'
                     sh 'npx ng test --watch=false --browsers=ChromeHeadless'
                 }
@@ -94,15 +84,11 @@ pipeline {
         // Deploy (Optional)
         // =============================
         stage('Deploy Backend (Optional)') {
-            steps {
-                echo "Skipping backend deployment in CI/CD."
-            }
+            steps { echo "Skipping backend deployment in CI/CD." }
         }
 
         stage('Deploy Frontend (Optional)') {
-            steps {
-                echo "Skipping frontend deployment in CI/CD."
-            }
+            steps { echo "Skipping frontend deployment in CI/CD." }
         }
     }
 
@@ -110,9 +96,7 @@ pipeline {
     // Post actions
     // =============================
     post {
-        always {
-            cleanWs()
-        }
+        always { cleanWs() }
 
         success {
             mail to: 'sarakhalaf2312@gmail.com',
@@ -129,17 +113,20 @@ pipeline {
 }
 
 // =================================================
-// Shared backend build function (CORRECT & SAFE)
+// Shared backend build function
 // =================================================
 def buildBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
         sh 'mvn -version'
 
+        // Use the embedded Kafka environment variable for CI
         sh """
             mvn clean package \
             -B \
-            -Dmaven.repo.local=${env.MVN_LOCAL_REPO}
+            -Dmaven.repo.local=${env.MVN_LOCAL_REPO} \
+            -Dspring.kafka.bootstrap-servers=${env.KAFKA_BOOTSTRAP_SERVERS} \
+            -Ptest
         """
 
         archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false
