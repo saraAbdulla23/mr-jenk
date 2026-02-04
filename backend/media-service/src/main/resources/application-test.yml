@@ -1,53 +1,103 @@
 # =====================================================
-# User Service Test Configuration
+# Global Test Configuration (applies to all microservices)
 # =====================================================
-
-# =============================
-# H2 In-Memory Database
-# =============================
 spring:
-  datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+  profiles:
+    active: test
+
+  main:
+    allow-bean-definition-overriding: true
 
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: create-drop
-    show-sql: false
+    show-sql: true
 
-  # =============================
-  # Embedded MongoDB
-  # =============================
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: test-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    embedded:
+      enabled: true
+      partitions: 1
+
   data:
     mongodb:
-      database: user_service_test
       port: 0
-
   mongodb:
     embedded:
       version: 7.0.4
 
-# =============================
-# Disable Eureka
-# =============================
+# Disable Eureka globally
 eureka:
   client:
     register-with-eureka: false
     fetch-registry: false
 
-# =============================
-# Server
-# =============================
+# Random server port for each service to avoid collisions
 server:
   port: 0
 
-# =============================
 # Logging
-# =============================
 logging:
   level:
     root: INFO
     org.springframework.data.mongodb: WARN
+    org.mongodb.driver: WARN
+    org.apache.kafka: DEBUG
+
+# =====================================================
+# User Service Test Configuration
+# =====================================================
+user-service:
+  datasource:
+    url: jdbc:h2:mem:userdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  mongodb:
+    database: user_service_test
+
+# =====================================================
+# Product Service Test Configuration
+# =====================================================
+product-service:
+  datasource:
+    url: jdbc:h2:mem:productdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  mongodb:
+    database: product_service_test
+
+# =====================================================
+# Media Service Test Configuration
+# =====================================================
+media-service:
+  datasource:
+    url: jdbc:h2:mem:mediadb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  mongodb:
+    database: media_service_test
