@@ -1,13 +1,9 @@
-# =============================
-# application-test.yml
-# =============================
-
 spring:
   profiles:
     active: test
 
   # =============================
-  # H2 In-Memory DB (for SQL services)
+  # H2 In-Memory DB
   # =============================
   datasource:
     url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
@@ -22,19 +18,19 @@ spring:
     show-sql: false
 
   # =============================
-  # EMBEDDED MongoDB (for tests)
+  # Embedded MongoDB
   # =============================
   data:
     mongodb:
       database: user_service_test
-      port: 0   # random free port
+      port: 0
 
   mongodb:
     embedded:
       version: 7.0.4
 
 # =============================
-# Eureka disabled in tests
+# Disable Eureka
 # =============================
 eureka:
   client:

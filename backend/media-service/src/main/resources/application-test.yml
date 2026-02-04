@@ -1,13 +1,9 @@
-# =============================
-# application-test.yml (media-service)
-# =============================
-
 spring:
   profiles:
     active: test
 
   # =============================
-  # EMBEDDED MongoDB (Media Service uses Mongo)
+  # Embedded MongoDB
   # =============================
   data:
     mongodb:
@@ -19,7 +15,7 @@ spring:
       version: 7.0.4
 
 # =============================
-# Disable Eureka in tests
+# Disable Eureka
 # =============================
 eureka:
   client:

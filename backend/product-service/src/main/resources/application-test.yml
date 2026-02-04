@@ -1,7 +1,3 @@
-# =============================
-# application-test.yml (product-service)
-# =============================
-
 spring:
   profiles:
     active: test
@@ -22,7 +18,7 @@ spring:
     show-sql: false
 
 # =============================
-# Disable Eureka in tests
+# Disable Eureka
 # =============================
 eureka:
   client:
