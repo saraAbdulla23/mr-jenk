@@ -1,10 +1,15 @@
 pipeline {
     agent any
 
+    tools {
+        maven 'maven-3'        // Jenkins Maven tool (3.9.12)
+        nodejs 'node-18'       // Jenkins NodeJS tool
+    }
+
     environment {
         BACKEND_DIR = "backend"
         FRONTEND_DIR = "front"
-        MVN_LOCAL_REPO = "$WORKSPACE/.m2/repository"
+        MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
     }
 
     options {
@@ -18,7 +23,8 @@ pipeline {
 
         stage('Checkout SCM') {
             steps {
-                checkout([$class: 'GitSCM',
+                checkout([
+                    $class: 'GitSCM',
                     branches: [[name: '*/master']],
                     userRemoteConfigs: [[url: 'https://github.com/saraAbdulla23/mr-jenk.git']]
                 ])
@@ -29,11 +35,21 @@ pipeline {
             steps {
                 script {
                     parallel(
-                        "Discovery Service": { buildBackend("${BACKEND_DIR}/discovery-service") },
-                        "API Gateway": { buildBackend("${BACKEND_DIR}/api-gateway") },
-                        "User Service": { buildBackend("${BACKEND_DIR}/user-service") },
-                        "Product Service": { buildBackend("${BACKEND_DIR}/product-service") },
-                        "Media Service": { buildBackend("${BACKEND_DIR}/media-service") }
+                        "Discovery Service": {
+                            buildBackend("${BACKEND_DIR}/discovery-service")
+                        },
+                        "API Gateway": {
+                            buildBackend("${BACKEND_DIR}/api-gateway")
+                        },
+                        "User Service": {
+                            buildBackend("${BACKEND_DIR}/user-service")
+                        },
+                        "Product Service": {
+                            buildBackend("${BACKEND_DIR}/product-service")
+                        },
+                        "Media Service": {
+                            buildBackend("${BACKEND_DIR}/media-service")
+                        }
                     )
                 }
             }
@@ -42,10 +58,10 @@ pipeline {
         stage('Frontend - Install & Test') {
             steps {
                 dir("${FRONTEND_DIR}") {
-                    echo "Installing frontend dependencies..."
-                    detectNode()
+                    sh 'node -v'
+                    sh 'npm -v'
+
                     sh 'npm install'
-                    echo "Running frontend tests..."
                     sh 'npx ng test --watch=false --browsers=ChromeHeadless'
                 }
             }
@@ -54,8 +70,6 @@ pipeline {
         stage('Frontend - Build') {
             steps {
                 dir("${FRONTEND_DIR}") {
-                    echo "Building Angular frontend..."
-                    detectNode()
                     sh 'npx ng build --configuration production'
                     archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
                 }
@@ -83,13 +97,13 @@ pipeline {
         success {
             mail to: 'sarakhalaf2312@gmail.com',
                  subject: '✅ Jenkins Build Successful',
-                 body: 'CI/CD pipeline completed successfully. All backend services and frontend built.'
+                 body: 'CI/CD pipeline completed successfully. Backend + Frontend built.'
         }
 
         failure {
             mail to: 'sarakhalaf2312@gmail.com',
                  subject: '❌ Jenkins Build Failed',
-                 body: 'Pipeline failed. Check Jenkins console output for failed stages.'
+                 body: 'Pipeline failed. Check Jenkins console output.'
         }
     }
 }
@@ -99,63 +113,15 @@ pipeline {
 // ---------------------------
 def buildBackend(String dirPath) {
     dir(dirPath) {
-        detectJava()
-        detectMaven()
-        echo "Building and testing ${dirPath}..."
-        sh "mvn clean test -B -Dmaven.repo.local=${env.MVN_LOCAL_REPO}"
-        archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+        sh 'java -version'
+        sh 'mvn -version'
+
+        sh """
+            mvn clean test \
+            -B \
+            -Dmaven.repo.local=${env.MVN_LOCAL_REPO}
+        """
+
+        archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: true
     }
-}
-
-// ---------------------------
-// Utility: Detect Java
-// ---------------------------
-def detectJava() {
-    sh '''
-        if ! command -v java &> /dev/null; then
-            echo "Java not found! Trying to auto-detect..."
-            JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))
-            PATH=$JAVA_HOME/bin:$PATH
-            export JAVA_HOME PATH
-        fi
-        java -version
-    '''
-}
-
-// ---------------------------
-// Utility: Detect Maven
-// ---------------------------
-def detectMaven() {
-    sh '''
-        if ! command -v mvn &> /dev/null; then
-            echo "Maven not found! Trying to auto-detect..."
-            if [ -d "/usr/share/maven/bin" ]; then
-                PATH=/usr/share/maven/bin:$PATH
-            elif [ -d "/opt/maven/bin" ]; then
-                PATH=/opt/maven/bin:$PATH
-            fi
-            export PATH
-        fi
-        if ! command -v mvn &> /dev/null; then
-            echo "ERROR: Maven still not found!"
-            exit 1
-        fi
-        mvn -v
-    '''
-}
-
-// ---------------------------
-// Utility: Detect NodeJS
-// ---------------------------
-def detectNode() {
-    sh '''
-        if ! command -v node &> /dev/null; then
-            echo "NodeJS not found! Trying to auto-detect..."
-            NODE_HOME=$(dirname $(dirname $(readlink -f $(which node))))
-            PATH=$NODE_HOME/bin:$PATH
-            export NODE_HOME PATH
-        fi
-        node -v
-        npm -v
-    '''
 }
