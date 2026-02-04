@@ -1,13 +1,29 @@
+# =====================================================
+# User Service Test Configuration
+# =====================================================
+
+# =============================
+# H2 In-Memory Database
+# =============================
 spring:
-  profiles:
-    active: test
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
 
   # =============================
   # Embedded MongoDB
   # =============================
   data:
     mongodb:
-      database: media_service_test
+      database: user_service_test
       port: 0
 
   mongodb:
