@@ -1,15 +1,18 @@
 # =====================================================
 # Global Test Configuration (applies to all microservices)
 # =====================================================
+
 spring:
   main:
     allow-bean-definition-overriding: true
 
   jpa:
     show-sql: true
+    hibernate:
+      ddl-auto: create-drop
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:embedded} # embedded Kafka for CI
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: test-group
       auto-offset-reset: earliest
@@ -37,7 +40,7 @@ eureka:
     register-with-eureka: false
     fetch-registry: false
 
-# Random server port for each service
+# Random server port for each service to avoid collisions
 server:
   port: 0
 
@@ -53,49 +56,61 @@ logging:
 # User Service Test Configuration
 # =====================================================
 user-service:
-  datasource:
-    url: jdbc:h2:mem:userdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: create-drop
-    show-sql: false
-  mongodb:
-    database: user_service_test
+  spring:
+    datasource:
+      url: jdbc:h2:mem:userdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      driver-class-name: org.h2.Driver
+      username: sa
+      password:
+    jpa:
+      database-platform: org.hibernate.dialect.H2Dialect
+      hibernate:
+        ddl-auto: create-drop
+      show-sql: false
+    transaction:
+      default-timeout: 30
+      rollback-on-commit-failure: true
+    mongodb:
+      database: user_service_test
 
 # =====================================================
 # Product Service Test Configuration
 # =====================================================
 product-service:
-  datasource:
-    url: jdbc:h2:mem:productdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: create-drop
-    show-sql: false
-  mongodb:
-    database: product_service_test
+  spring:
+    datasource:
+      url: jdbc:h2:mem:productdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      driver-class-name: org.h2.Driver
+      username: sa
+      password:
+    jpa:
+      database-platform: org.hibernate.dialect.H2Dialect
+      hibernate:
+        ddl-auto: create-drop
+      show-sql: false
+    transaction:
+      default-timeout: 30
+      rollback-on-commit-failure: true
+    mongodb:
+      database: product_service_test
 
 # =====================================================
 # Media Service Test Configuration
 # =====================================================
 media-service:
-  datasource:
-    url: jdbc:h2:mem:mediadb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: create-drop
-    show-sql: false
-  mongodb:
-    database: media_service_test
+  spring:
+    datasource:
+      url: jdbc:h2:mem:mediadb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      driver-class-name: org.h2.Driver
+      username: sa
+      password:
+    jpa:
+      database-platform: org.hibernate.dialect.H2Dialect
+      hibernate:
+        ddl-auto: create-drop
+      show-sql: false
+    transaction:
+      default-timeout: 30
+      rollback-on-commit-failure: true
+    mongodb:
+      database: media_service_test

@@ -11,6 +11,7 @@ pipeline {
         FRONTEND_DIR   = "front"
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
         KAFKA_BOOTSTRAP_SERVERS = "embedded" // Force embedded Kafka for CI
+        SPRING_PROFILES_ACTIVE = "test"      // Use test profile in CI
     }
 
     options {
@@ -23,7 +24,7 @@ pipeline {
     stages {
 
         // =============================
-        // Checkout
+        // Checkout SCM
         // =============================
         stage('Checkout SCM') {
             steps {
@@ -120,13 +121,13 @@ def buildBackend(String dirPath) {
         sh 'java -version'
         sh 'mvn -version'
 
-        // Use the embedded Kafka environment variable for CI
+        // Use the embedded Kafka + test profile environment for CI
         sh """
             mvn clean package \
             -B \
             -Dmaven.repo.local=${env.MVN_LOCAL_REPO} \
             -Dspring.kafka.bootstrap-servers=${env.KAFKA_BOOTSTRAP_SERVERS} \
-            -Ptest
+            -Dspring.profiles.active=${env.SPRING_PROFILES_ACTIVE}
         """
 
         archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false
