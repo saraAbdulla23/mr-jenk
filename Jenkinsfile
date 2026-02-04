@@ -2,16 +2,16 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven-3'        // Jenkins Maven tool
-        nodejs 'node-18'       // Jenkins NodeJS tool
+        maven 'maven-3'
+        nodejs 'node-18'
     }
 
     environment {
         BACKEND_DIR    = "backend"
         FRONTEND_DIR   = "front"
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
-        SPRING_PROFILES_ACTIVE = "test"  // Use test profile
-        KAFKA_BOOTSTRAP_SERVERS = ""     // Will be set dynamically
+        SPRING_PROFILES_ACTIVE = "test"
+        KAFKA_BOOTSTRAP_SERVERS = "embedded"  // Use embedded Kafka
     }
 
     options {
@@ -23,9 +23,6 @@ pipeline {
 
     stages {
 
-        // =============================
-        // Checkout SCM
-        // =============================
         stage('Checkout SCM') {
             steps {
                 checkout([
@@ -38,35 +35,6 @@ pipeline {
             }
         }
 
-        // =============================
-        // Start Embedded Kafka
-        // =============================
-        stage('Start Embedded Kafka') {
-            steps {
-                script {
-                    // Start Kafka container using Testcontainers
-                    KAFKA_CONTAINER_SCRIPT = '''
-                        docker run -d --name ci-kafka -p 9092:9092 \
-                        -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
-                        -e KAFKA_ZOOKEEPER_CONNECT=localhost:2181 \
-                        -e KAFKA_BROKER_ID=1 \
-                        wurstmeister/kafka:2.13-2.8.0
-                    '''
-                    sh KAFKA_CONTAINER_SCRIPT
-
-                    // Wait a few seconds for Kafka to start
-                    sh 'sleep 15'
-
-                    // Set environment variable for Maven builds
-                    env.KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
-                    echo "Kafka running at ${env.KAFKA_BOOTSTRAP_SERVERS}"
-                }
-            }
-        }
-
-        // =============================
-        // Backend - Build & Test
-        // =============================
         stage('Backend - Build & Test') {
             steps {
                 script {
@@ -81,9 +49,6 @@ pipeline {
             }
         }
 
-        // =============================
-        // Frontend - Install & Test
-        // =============================
         stage('Frontend - Install & Test') {
             steps {
                 dir("${FRONTEND_DIR}") {
@@ -95,9 +60,6 @@ pipeline {
             }
         }
 
-        // =============================
-        // Frontend - Build
-        // =============================
         stage('Frontend - Build') {
             steps {
                 dir("${FRONTEND_DIR}") {
@@ -107,22 +69,12 @@ pipeline {
             }
         }
 
-        // =============================
-        // Deploy (Optional)
-        // =============================
         stage('Deploy Backend (Optional)') { steps { echo "Skipping backend deployment." } }
         stage('Deploy Frontend (Optional)') { steps { echo "Skipping frontend deployment." } }
     }
 
-    // =============================
-    // Post actions
-    // =============================
     post {
-        always {
-            // Stop and remove Kafka container
-            sh 'docker rm -f ci-kafka || true'
-            cleanWs()
-        }
+        always { cleanWs() }
         success {
             mail to: 'sarakhalaf2312@gmail.com',
                  subject: '✅ Jenkins Build Successful',
@@ -136,9 +88,6 @@ pipeline {
     }
 }
 
-// =================================================
-// Shared backend build function
-// =================================================
 def buildBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
