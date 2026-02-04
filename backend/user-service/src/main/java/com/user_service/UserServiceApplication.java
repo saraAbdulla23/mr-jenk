@@ -6,13 +6,14 @@ import com.user_service.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.client.discovery.EnableDiscoveryClient; // <-- ADD THIS
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @SpringBootApplication
-@EnableDiscoveryClient // <-- Enables Eureka client functionality
+@EnableDiscoveryClient
 public class UserServiceApplication {
 
     public static void main(String[] args) {
@@ -24,9 +25,14 @@ public class UserServiceApplication {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * Runs ONLY in dev/prod — NOT during tests
+     */
     @Bean
+    @Profile("!test")
     CommandLineRunner initAdmin(UserRepository userRepository,
-                                PasswordEncoder passwordEncoder) {
+                               PasswordEncoder passwordEncoder) {
+
         return args -> {
             if (userRepository.findByEmail("admin@userservice.com").isEmpty()) {
                 User admin = new User();
@@ -35,7 +41,10 @@ public class UserServiceApplication {
                 admin.setPassword(passwordEncoder.encode("admin123"));
                 admin.setRole(Role.ROLE_SELLER);
                 userRepository.save(admin);
-                System.out.println("Admin Credentials: admin@userservice.com / admin123");
+
+                System.out.println(
+                    "Admin Credentials: admin@userservice.com / admin123"
+                );
             }
         };
     }

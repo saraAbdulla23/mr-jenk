@@ -1,40 +1,44 @@
 # =============================
-# application-test.yml
+# application-test.yml (product-service)
 # =============================
 
 spring:
-  profiles: test
+  profiles:
+    active: test
 
-  # === H2 In-Memory Database for SQL services ===
+  # =============================
+  # H2 In-Memory DB
+  # =============================
   datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:productdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
     username: sa
     password:
+
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: create-drop
+    show-sql: false
 
-  # === MongoDB In-Memory for MongoDB services ===
-  data:
-    mongodb:
-      uri: mongodb://localhost:27017/testdb
-
-# === Logging ===
-logging:
-  level:
-    root: INFO
-    org.springframework: INFO
-    com.yourcompany: DEBUG
-
-# === Eureka / Discovery Config for tests ===
+# =============================
+# Disable Eureka in tests
+# =============================
 eureka:
   client:
     register-with-eureka: false
     fetch-registry: false
 
-# === Other service-specific overrides ===
+# =============================
+# Server
+# =============================
 server:
-  port: 0  # Random port for tests
+  port: 0
+
+# =============================
+# Logging
+# =============================
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: WARN
