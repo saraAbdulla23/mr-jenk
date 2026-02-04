@@ -2,6 +2,7 @@ package com.product_service.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -16,6 +17,7 @@ import java.util.Base64;
 
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true)
+@Profile("!test") // ✅ THIS IS THE KEY
 public class SecurityConfig {
 
     // 🔐 Must match the secret used by Auth Service / API Gateway

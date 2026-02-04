@@ -25,5 +25,6 @@ class MediaServiceApplicationTests {
 
     @Test
     void contextLoads() {
+        // Ensures Spring context loads without security beans interfering
     }
 }

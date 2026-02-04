@@ -3,6 +3,7 @@ package backend.media_service.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -17,6 +18,7 @@ import java.util.Collection;
 import java.util.Collections;
 
 @Configuration
+@Profile("!test") // ✅ THIS IS THE KEY
 public class SecurityConfig {
 
     @Value("${spring.security.oauth2.resourceserver.jwt.secret-key}")

@@ -25,5 +25,6 @@ class UserServiceApplicationTests {
 
     @Test
     void contextLoads() {
+        // Just ensures Spring context loads without security beans interfering
     }
 }

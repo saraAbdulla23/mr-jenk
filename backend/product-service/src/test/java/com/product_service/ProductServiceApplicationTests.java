@@ -25,5 +25,6 @@ class ProductServiceApplicationTests {
 
     @Test
     void contextLoads() {
+        // Ensures Spring context loads without JWT/security beans interfering
     }
 }
