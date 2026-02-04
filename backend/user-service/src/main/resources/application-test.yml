@@ -5,13 +5,19 @@ spring:
   main:
     allow-bean-definition-overriding: true
 
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
   jpa:
-    show-sql: true
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: false
     hibernate:
       ddl-auto: create-drop
 
   kafka:
-    # Embedded Kafka is enabled only for tests; production Kafka won't be used
     embedded:
       enabled: true
       partitions: 1
@@ -27,31 +33,36 @@ spring:
 
   data:
     mongodb:
-      host: localhost
-      port: 0  # Flapdoodle will pick a free port automatically
+      port: 0
       database: test
-      uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:0/test}  # random port for embedded Mongo
+      uri: mongodb://localhost:0/test
 
-# Disable Eureka globally
+# -----------------------------------------------------
+# Disable Eureka for tests
+# -----------------------------------------------------
 eureka:
   client:
     register-with-eureka: false
     fetch-registry: false
 
-# Random server port for each service to avoid collisions
+# -----------------------------------------------------
+# Random ports to avoid conflicts
+# -----------------------------------------------------
 server:
   port: 0
 
-# Logging configuration
+# -----------------------------------------------------
+# Logging (keep CI logs readable)
+# -----------------------------------------------------
 logging:
   level:
     root: INFO
     org.springframework.data.mongodb: WARN
     org.mongodb.driver: WARN
-    org.apache.kafka: DEBUG
+    org.apache.kafka: WARN
 
 # =====================================================
-# User Service Test Configuration
+# User Service Test Overrides
 # =====================================================
 user-service:
   spring:
@@ -61,20 +72,15 @@ user-service:
       username: sa
       password:
     jpa:
-      database-platform: org.hibernate.dialect.H2Dialect
       hibernate:
         ddl-auto: create-drop
-      show-sql: false
-    transaction:
-      default-timeout: 30
-      rollback-on-commit-failure: true
     data:
       mongodb:
         database: user_service_test
-        uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:0/user_service_test}
+        uri: mongodb://localhost:0/user_service_test
 
 # =====================================================
-# Product Service Test Configuration
+# Product Service Test Overrides
 # =====================================================
 product-service:
   spring:
@@ -84,20 +90,15 @@ product-service:
       username: sa
       password:
     jpa:
-      database-platform: org.hibernate.dialect.H2Dialect
       hibernate:
         ddl-auto: create-drop
-      show-sql: false
-    transaction:
-      default-timeout: 30
-      rollback-on-commit-failure: true
     data:
       mongodb:
         database: product_service_test
-        uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:0/product_service_test}
+        uri: mongodb://localhost:0/product_service_test
 
 # =====================================================
-# Media Service Test Configuration
+# Media Service Test Overrides
 # =====================================================
 media-service:
   spring:
@@ -107,14 +108,9 @@ media-service:
       username: sa
       password:
     jpa:
-      database-platform: org.hibernate.dialect.H2Dialect
       hibernate:
         ddl-auto: create-drop
-      show-sql: false
-    transaction:
-      default-timeout: 30
-      rollback-on-commit-failure: true
     data:
       mongodb:
         database: media_service_test
-        uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:0/media_service_test}
+        uri: mongodb://localhost:0/media_service_test
