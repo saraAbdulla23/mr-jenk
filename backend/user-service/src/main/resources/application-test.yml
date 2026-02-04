@@ -1,10 +1,8 @@
 # =====================================================
 # Global Test Configuration (applies to all microservices)
 # =====================================================
-spring:
-  profiles:
-    active: test
 
+spring:
   main:
     allow-bean-definition-overriding: true
 
@@ -29,6 +27,7 @@ spring:
   data:
     mongodb:
       port: 0
+
   mongodb:
     embedded:
       version: 7.0.4
