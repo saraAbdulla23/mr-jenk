@@ -1,5 +1,5 @@
 # =====================================================
-# Global Test Configuration (applies to all microservices)
+# Global Test Configuration (ALL microservices)
 # =====================================================
 spring:
   main:
@@ -17,6 +17,9 @@ spring:
     hibernate:
       ddl-auto: create-drop
 
+  # ---------------------------------------------------
+  # Embedded Kafka for tests
+  # ---------------------------------------------------
   kafka:
     embedded:
       enabled: true
@@ -24,21 +27,20 @@ spring:
     consumer:
       group-id: test-group
       auto-offset-reset: earliest
-      enable-auto-commit: false
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
+  # ---------------------------------------------------
+  # Embedded MongoDB (Flapdoodle)
+  # IMPORTANT: NO URI, NO HOST, NO PORT
+  # ---------------------------------------------------
   data:
     mongodb:
-      port: 0
       database: test
-      uri: mongodb://localhost:0/test
 
 # -----------------------------------------------------
-# Disable Eureka for tests
+# Disable Eureka
 # -----------------------------------------------------
 eureka:
   client:
@@ -46,71 +48,58 @@ eureka:
     fetch-registry: false
 
 # -----------------------------------------------------
-# Random ports to avoid conflicts
+# Random server port
 # -----------------------------------------------------
 server:
   port: 0
 
 # -----------------------------------------------------
-# Logging (keep CI logs readable)
+# Logging
 # -----------------------------------------------------
 logging:
   level:
     root: INFO
-    org.springframework.data.mongodb: WARN
     org.mongodb.driver: WARN
     org.apache.kafka: WARN
 
 # =====================================================
-# User Service Test Overrides
+# User Service
 # =====================================================
 user-service:
   spring:
     datasource:
       url: jdbc:h2:mem:userdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-      driver-class-name: org.h2.Driver
-      username: sa
-      password:
     jpa:
       hibernate:
         ddl-auto: create-drop
     data:
       mongodb:
         database: user_service_test
-        uri: mongodb://localhost:0/user_service_test
 
 # =====================================================
-# Product Service Test Overrides
+# Product Service
 # =====================================================
 product-service:
   spring:
     datasource:
       url: jdbc:h2:mem:productdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-      driver-class-name: org.h2.Driver
-      username: sa
-      password:
     jpa:
       hibernate:
         ddl-auto: create-drop
     data:
       mongodb:
         database: product_service_test
-        uri: mongodb://localhost:0/product_service_test
 
 # =====================================================
-# Media Service Test Overrides
+# Media Service
 # =====================================================
 media-service:
   spring:
     datasource:
       url: jdbc:h2:mem:mediadb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-      driver-class-name: org.h2.Driver
-      username: sa
-      password:
     jpa:
       hibernate:
         ddl-auto: create-drop
     data:
       mongodb:
         database: media_service_test
-        uri: mongodb://localhost:0/media_service_test
