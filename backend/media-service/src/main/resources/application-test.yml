@@ -1,7 +1,6 @@
 # =====================================================
 # Global Test Configuration (applies to all microservices)
 # =====================================================
-
 spring:
   main:
     allow-bean-definition-overriding: true
@@ -12,7 +11,7 @@ spring:
       ddl-auto: create-drop
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}  # Dynamically injected by Jenkins
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}  # Injected dynamically
     consumer:
       group-id: test-group
       auto-offset-reset: earliest
@@ -28,11 +27,10 @@ spring:
 
   data:
     mongodb:
+      host: localhost
       port: 0
-
-  mongodb:
-    embedded:
-      version: 7.0.4
+      database: test  # Default fallback
+      uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:27017/test}
 
 # Disable Eureka globally
 eureka:
@@ -44,7 +42,7 @@ eureka:
 server:
   port: 0
 
-# Logging
+# Logging configuration
 logging:
   level:
     root: INFO
@@ -70,8 +68,10 @@ user-service:
     transaction:
       default-timeout: 30
       rollback-on-commit-failure: true
-    mongodb:
-      database: user_service_test
+    data:
+      mongodb:
+        database: user_service_test
+        uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:27017/user_service_test}
 
 # =====================================================
 # Product Service Test Configuration
@@ -91,8 +91,10 @@ product-service:
     transaction:
       default-timeout: 30
       rollback-on-commit-failure: true
-    mongodb:
-      database: product_service_test
+    data:
+      mongodb:
+        database: product_service_test
+        uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:27017/product_service_test}
 
 # =====================================================
 # Media Service Test Configuration
@@ -112,5 +114,7 @@ media-service:
     transaction:
       default-timeout: 30
       rollback-on-commit-failure: true
-    mongodb:
-      database: media_service_test
+    data:
+      mongodb:
+        database: media_service_test
+        uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:27017/media_service_test}
