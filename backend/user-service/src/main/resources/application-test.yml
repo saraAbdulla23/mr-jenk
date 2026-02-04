@@ -11,7 +11,10 @@ spring:
       ddl-auto: create-drop
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}  # Optional override
+    # Embedded Kafka is enabled only for tests; production Kafka won't be used
+    embedded:
+      enabled: true
+      partitions: 1
     consumer:
       group-id: test-group
       auto-offset-reset: earliest
@@ -21,16 +24,13 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
-    embedded:
-      enabled: true
-      partitions: 1
 
   data:
     mongodb:
       host: localhost
-      port: 0  # Let Flapdoodle pick a free port automatically
+      port: 0  # Flapdoodle will pick a free port automatically
       database: test
-      uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:27017/test}
+      uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:0/test}  # random port for embedded Mongo
 
 # Disable Eureka globally
 eureka:
@@ -71,7 +71,7 @@ user-service:
     data:
       mongodb:
         database: user_service_test
-        uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:27017/user_service_test}
+        uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:0/user_service_test}
 
 # =====================================================
 # Product Service Test Configuration
@@ -94,7 +94,7 @@ product-service:
     data:
       mongodb:
         database: product_service_test
-        uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:27017/product_service_test}
+        uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:0/product_service_test}
 
 # =====================================================
 # Media Service Test Configuration
@@ -117,4 +117,4 @@ media-service:
     data:
       mongodb:
         database: media_service_test
-        uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:27017/media_service_test}
+        uri: ${MONGO_EMBEDDED_URI:mongodb://localhost:0/media_service_test}
