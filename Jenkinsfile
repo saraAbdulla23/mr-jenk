@@ -11,6 +11,11 @@ pipeline {
         FRONTEND_DIR   = "front"
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
         SPRING_PROFILES_ACTIVE = "test"
+
+        // Deployment paths (adjust to your servers)
+        BACKEND_DEPLOY_DIR = "/opt/ecommerce/backend"
+        FRONTEND_DEPLOY_DIR = "/opt/ecommerce/frontend"
+        BACKUP_DIR = "/opt/ecommerce/backup"
     }
 
     options {
@@ -68,21 +73,34 @@ pipeline {
             }
         }
 
-        stage('Deploy Backend (Optional)') { steps { echo "Skipping backend deployment." } }
-        stage('Deploy Frontend (Optional)') { steps { echo "Skipping frontend deployment." } }
+        stage('Deploy Backend') {
+            steps {
+                script {
+                    deployBackend("${BACKEND_DIR}")
+                }
+            }
+        }
+
+        stage('Deploy Frontend') {
+            steps {
+                script {
+                    deployFrontend("${FRONTEND_DIR}")
+                }
+            }
+        }
     }
 
     post {
         always { cleanWs() }
         success {
             mail to: 'sarakhalaf2312@gmail.com',
-                 subject: '✅ Jenkins Build Successful',
-                 body: 'CI/CD pipeline completed successfully. Backend + Frontend built.'
+                 subject: '✅ Jenkins Build & Deploy Successful',
+                 body: 'CI/CD pipeline completed successfully. Backend + Frontend built and deployed.'
         }
         failure {
             mail to: 'sarakhalaf2312@gmail.com',
-                 subject: '❌ Jenkins Build Failed',
-                 body: 'Pipeline failed. Check Jenkins console output.'
+                 subject: '❌ Jenkins Build/Deploy Failed',
+                 body: 'Pipeline failed. Check Jenkins console output for details.'
         }
     }
 }
@@ -104,5 +122,71 @@ def buildBackend(String dirPath) {
         """
 
         archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false
+    }
+}
+
+// =================================================
+// Deploy functions with rollback
+// =================================================
+def deployBackend(String dirPath) {
+    dir(dirPath) {
+        def jarFile = sh(script: "ls target/*.jar | head -n 1", returnStdout: true).trim()
+        def serviceName = dirPath.split('/')[-1]
+
+        echo "Deploying backend service: ${serviceName}"
+
+        // Backup old jar
+        sh """
+            mkdir -p ${env.BACKUP_DIR}/${serviceName}
+            if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
+                cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
+            fi
+        """
+
+        // Deploy new jar
+        sh """
+            cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
+        """
+
+        // Restart service (systemd example)
+        sh """
+            systemctl restart ${serviceName} || (
+                echo 'Deployment failed, rolling back...'
+                cp ${env.BACKUP_DIR}/${serviceName}/$(ls -t ${env.BACKUP_DIR}/${serviceName} | head -n1) ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
+                systemctl restart ${serviceName}
+                exit 1
+            )
+        """
+    }
+}
+
+def deployFrontend(String dirPath) {
+    dir(dirPath) {
+        echo "Deploying frontend"
+
+        // Backup old frontend
+        sh """
+            mkdir -p ${env.BACKUP_DIR}/frontend
+            if [ -d ${env.FRONTEND_DEPLOY_DIR} ]; then
+                cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/
+            fi
+        """
+
+        // Copy new build
+        sh """
+            rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
+            cp -r dist/* ${env.FRONTEND_DEPLOY_DIR}/
+        """
+
+        // Optional: restart frontend server (nginx example)
+        sh """
+            systemctl restart nginx || (
+                echo 'Frontend deployment failed, rolling back...'
+                rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
+                cp -r ${env.BACKUP_DIR}/frontend/* ${env.FRONTEND_DEPLOY_DIR}/
+                systemctl restart nginx
+                exit 1
+            )
+        """
     }
 }
