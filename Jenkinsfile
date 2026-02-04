@@ -12,7 +12,7 @@ pipeline {
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
         SPRING_PROFILES_ACTIVE = "test"
 
-        // Deployment paths (adjust to your servers)
+        // Deployment paths
         BACKEND_DEPLOY_DIR = "/opt/ecommerce/backend"
         FRONTEND_DEPLOY_DIR = "/opt/ecommerce/frontend"
         BACKUP_DIR = "/opt/ecommerce/backup"
@@ -114,14 +114,14 @@ pipeline {
 }
 
 // =================================================
-// Shared backend build function
+// Backend build function
 // =================================================
 def buildBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
         sh 'mvn -version'
 
-        // Embedded Kafka & MongoDB are used automatically via test dependencies
+        // Build with embedded test profile
         sh """
             mvn clean package \
             -B \
@@ -152,9 +152,7 @@ def deployBackend(String dirPath) {
         """
 
         // Deploy new jar
-        sh """
-            cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
-        """
+        sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
 
         // Restart service with rollback
         def latestBackup = sh(script: "ls -t ${env.BACKUP_DIR}/${serviceName} | head -n1", returnStdout: true).trim()
@@ -201,7 +199,7 @@ def deployFrontend(String dirPath) {
 }
 
 // =====================================================
-// Write Global Spring Test Configuration (Embedded Kafka/MongoDB)
+// Write test configuration using embedded MongoDB
 // =====================================================
 def writeTestConfig() {
     writeFile file: 'application-test.yml', text: """
@@ -231,7 +229,7 @@ spring:
   data:
     mongodb:
       host: localhost
-      port: 0
+      port: 0  # Flapdoodle embedded MongoDB will assign a free port
       database: test
       uri: \${MONGO_EMBEDDED_URI:mongodb://localhost:0/test}
 
