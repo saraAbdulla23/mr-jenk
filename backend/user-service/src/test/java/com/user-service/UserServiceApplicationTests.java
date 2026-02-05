@@ -7,6 +7,8 @@ import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.security.authentication.AuthenticationManager;
 
 @SpringBootTest(classes = UserServiceApplication.class)
 @ActiveProfiles("test")
@@ -23,8 +25,15 @@ import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServic
 })
 class UserServiceApplicationTests {
 
+    /**
+     * Mocked to satisfy AuthService constructor
+     * without enabling full Spring Security
+     */
+    @MockBean
+    private AuthenticationManager authenticationManager;
+
     @Test
     void contextLoads() {
-        // Just ensures Spring context loads without security beans interfering
+        // verifies Spring context loads in CI
     }
 }
