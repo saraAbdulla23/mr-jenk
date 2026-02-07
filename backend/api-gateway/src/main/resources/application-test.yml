@@ -3,9 +3,6 @@
 # =============================
 
 spring:
-  profiles:
-    active: test
-
   main:
     web-application-type: reactive
 
@@ -18,7 +15,10 @@ eureka:
     register-with-eureka: false
     fetch-registry: false
 
-spring.cloud.discovery.enabled: false
+spring:
+  cloud:
+    discovery:
+      enabled: false
 
 # =============================
 # SERVER
@@ -27,7 +27,7 @@ server:
   port: 0
 
 # =============================
-# LOGGING (quiet Eureka spam)
+# LOGGING
 # =============================
 logging:
   level:
