@@ -10,13 +10,7 @@ import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServic
 
 @SpringBootTest(classes = ProductServiceApplication.class)
 @ActiveProfiles("test")
-@EmbeddedKafka(
-    partitions = 1,
-    brokerProperties = {
-        "listeners=PLAINTEXT://localhost:0",
-        "port=0"
-    }
-)
+@EmbeddedKafka(partitions = 1)
 @EnableAutoConfiguration(exclude = {
     SecurityAutoConfiguration.class,
     UserDetailsServiceAutoConfiguration.class
@@ -25,6 +19,5 @@ class ProductServiceApplicationTests {
 
     @Test
     void contextLoads() {
-        // Ensures Spring context loads without JWT/security beans interfering
     }
 }

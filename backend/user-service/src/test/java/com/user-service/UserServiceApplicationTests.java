@@ -12,28 +12,17 @@ import org.springframework.security.authentication.AuthenticationManager;
 
 @SpringBootTest(classes = UserServiceApplication.class)
 @ActiveProfiles("test")
-@EmbeddedKafka(
-    partitions = 1,
-    brokerProperties = {
-        "listeners=PLAINTEXT://localhost:0",
-        "port=0"
-    }
-)
+@EmbeddedKafka(partitions = 1)
 @EnableAutoConfiguration(exclude = {
     SecurityAutoConfiguration.class,
     UserDetailsServiceAutoConfiguration.class
 })
 class UserServiceApplicationTests {
 
-    /**
-     * Mocked to satisfy AuthService constructor
-     * without enabling full Spring Security
-     */
     @MockBean
     private AuthenticationManager authenticationManager;
 
     @Test
     void contextLoads() {
-        // verifies Spring context loads in CI
     }
 }
