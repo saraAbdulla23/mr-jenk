@@ -6,6 +6,10 @@ spring:
   main:
     web-application-type: reactive
 
+  cloud:
+    discovery:
+      enabled: false
+
 # =============================
 # DISABLE EUREKA COMPLETELY
 # =============================
@@ -14,11 +18,6 @@ eureka:
     enabled: false
     register-with-eureka: false
     fetch-registry: false
-
-spring:
-  cloud:
-    discovery:
-      enabled: false
 
 # =============================
 # SERVER
