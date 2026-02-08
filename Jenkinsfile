@@ -3,7 +3,7 @@ pipeline {
 
     tools {
         maven 'maven-3'
-        nodejs 'node-18'
+        nodejs 'node-20'
     }
 
     environment {
@@ -16,6 +16,9 @@ pipeline {
         BACKEND_DEPLOY_DIR = "/opt/ecommerce/backend"
         FRONTEND_DEPLOY_DIR = "/opt/ecommerce/frontend"
         BACKUP_DIR = "/opt/ecommerce/backup"
+
+        // NPM cache location
+        NPM_CACHE = "${WORKSPACE}/.npm"
     }
 
     options {
@@ -56,10 +59,30 @@ pipeline {
         stage('Frontend - Install & Test') {
             steps {
                 dir("${FRONTEND_DIR}") {
+                    // Ensure npm cache directory exists
+                    sh 'mkdir -p ${NPM_CACHE}'
+
+                    // Use cached npm packages
+                    sh 'npm config set cache ${NPM_CACHE} --global'
+
                     sh 'node -v'
                     sh 'npm -v'
-                    sh 'npm install'
-                    sh 'npx ng test --watch=false --browsers=ChromeHeadless'
+
+                    // Install frontend dependencies (will use cache)
+                    sh 'npm install --prefer-offline --no-audit --progress=false'
+
+                    // Install puppeteer only if not already installed
+                    sh '''
+                        if [ ! -d "node_modules/puppeteer" ]; then
+                            npm install puppeteer --save-dev --prefer-offline --no-audit --progress=false
+                        fi
+                    '''
+
+                    // Set CHROME_BIN to Puppeteer Chrome and run tests
+                    sh '''
+                        export CHROME_BIN=$(node -e "console.log(require('puppeteer').executablePath())")
+                        npx ng test --watch=false --browsers=ChromeHeadless
+                    '''
                 }
             }
         }
@@ -106,14 +129,17 @@ pipeline {
 }
 
 // =================================================
-// Backend build function
+// Backend build function with Maven caching
 // =================================================
 def buildBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
         sh 'mvn -version'
 
-        // Build with embedded test profile
+        // Ensure Maven local repo exists
+        sh 'mkdir -p ${MVN_LOCAL_REPO}'
+
+        // Build with embedded test profile, using cached Maven repo
         sh """
             mvn clean package \
             -B \
