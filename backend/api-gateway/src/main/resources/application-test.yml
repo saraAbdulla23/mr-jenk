@@ -10,6 +10,11 @@ spring:
     discovery:
       enabled: false
 
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+
 # =============================
 # DISABLE EUREKA COMPLETELY
 # =============================

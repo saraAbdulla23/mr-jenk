@@ -10,5 +10,6 @@ class ApiGatewayApplicationTests {
 
     @Test
     void contextLoads() {
+        // verifies Spring context loads in CI
     }
 }
