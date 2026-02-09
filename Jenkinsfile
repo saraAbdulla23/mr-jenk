@@ -9,17 +9,19 @@ pipeline {
     environment {
         BACKEND_DIR    = "backend"
         FRONTEND_DIR   = "front"
-        MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
+
+        // Persistent caches stored outside workspace
+        MVN_LOCAL_REPO   = "/var/jenkins_home/caches/maven"
+        NPM_CACHE        = "/var/jenkins_home/caches/npm"
+        PUPPETEER_CACHE  = "/var/jenkins_home/caches/puppeteer"
+
         SPRING_PROFILES_ACTIVE = "test"
 
-        BACKEND_DEPLOY_DIR = "${WORKSPACE}/deploy/backend"
+        BACKEND_DEPLOY_DIR  = "${WORKSPACE}/deploy/backend"
         FRONTEND_DEPLOY_DIR = "${WORKSPACE}/deploy/frontend"
-        BACKUP_DIR = "${WORKSPACE}/deploy/backup"
+        BACKUP_DIR          = "${WORKSPACE}/deploy/backup"
 
-        NPM_CACHE = "${WORKSPACE}/.npm"
-        PUPPETEER_CACHE = "${WORKSPACE}/.cache/puppeteer"
         CI = "true"
-
         NOTIFY_EMAIL = "sarakhalaf2312@gmail.com"
     }
 
@@ -48,7 +50,39 @@ pipeline {
             }
         }
 
+        stage('Detect Changes') {
+            steps {
+                script {
+                    env.CHANGED_BACKEND_SERVICES = ""
+                    env.FRONTEND_CHANGED = "false"
+
+                    // Detect changed backend services
+                    def backendDirs = findFiles(glob: "${BACKEND_DIR}/*").collect { it.path }
+                    backendDirs.each { dirPath ->
+                        def changes = sh(
+                            script: "git diff --name-only HEAD~1 HEAD ${dirPath}",
+                            returnStdout: true
+                        ).trim()
+                        if (changes) {
+                            env.CHANGED_BACKEND_SERVICES += "${dirPath.split('/')[-1]},"
+                        }
+                    }
+
+                    // Detect frontend changes
+                    def frontendChanges = sh(
+                        script: "git diff --name-only HEAD~1 HEAD ${FRONTEND_DIR}",
+                        returnStdout: true
+                    ).trim()
+                    if (frontendChanges) env.FRONTEND_CHANGED = "true"
+
+                    echo "Changed backend services: ${env.CHANGED_BACKEND_SERVICES}"
+                    echo "Frontend changed: ${env.FRONTEND_CHANGED}"
+                }
+            }
+        }
+
         stage('Setup Puppeteer & Chrome') {
+            when { expression { env.FRONTEND_CHANGED == "true" } }
             steps {
                 dir("${FRONTEND_DIR}") {
                     script {
@@ -76,27 +110,34 @@ pipeline {
         }
 
         stage('Backend - Build & Test') {
+            when { expression { env.CHANGED_BACKEND_SERVICES } }
             steps {
                 script {
-                    parallel(
-                        "Discovery Service": { buildAndTestBackend("${BACKEND_DIR}/discovery-service") },
-                        "API Gateway":       { buildAndTestBackend("${BACKEND_DIR}/api-gateway") },
-                        "User Service":      { buildAndTestBackend("${BACKEND_DIR}/user-service") },
-                        "Product Service":   { buildAndTestBackend("${BACKEND_DIR}/product-service") },
-                        "Media Service":     { buildAndTestBackend("${BACKEND_DIR}/media-service") }
-                    )
+                    def services = env.CHANGED_BACKEND_SERVICES.tokenize(',')
+                    def parallelStages = [:]
+
+                    services.each { service ->
+                        if (!service) return
+                        def serviceDir = "${BACKEND_DIR}/${service}"
+                        parallelStages[service] = { buildAndTestBackend(serviceDir) }
+                    }
+
+                    parallel parallelStages
                 }
             }
         }
 
         stage('Frontend - Install & Test') {
+            when { expression { env.FRONTEND_CHANGED == "true" } }
             steps {
                 dir("${FRONTEND_DIR}") {
-                    sh 'mkdir -p ${NPM_CACHE}'
-                    sh 'npm config set cache ${NPM_CACHE} --global'
+                    sh "mkdir -p ${NPM_CACHE}"
+                    sh "npm config set cache ${NPM_CACHE} --global"
+
                     sh 'node -v'
                     sh 'npm -v'
-                    sh 'npm install --prefer-offline --no-audit --progress=false'
+
+                    sh 'npm ci --prefer-offline --no-audit --progress=false'
 
                     script {
                         def isMacARM = sh(script: "uname -m", returnStdout: true).trim() == "arm64"
@@ -112,6 +153,7 @@ pipeline {
         }
 
         stage('Frontend - Build') {
+            when { expression { env.FRONTEND_CHANGED == "true" } }
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh 'npx ng build --configuration production'
@@ -121,10 +163,12 @@ pipeline {
         }
 
         stage('Deploy Backend') {
+            when { expression { env.CHANGED_BACKEND_SERVICES } }
             steps { script { deployBackend("${BACKEND_DIR}") } }
         }
 
         stage('Deploy Frontend') {
+            when { expression { env.FRONTEND_CHANGED == "true" } }
             steps { script { deployFrontend("${FRONTEND_DIR}") } }
         }
     }
@@ -153,7 +197,7 @@ def buildAndTestBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
         sh 'mvn -version'
-        sh 'mkdir -p ${MVN_LOCAL_REPO}'
+        sh "mkdir -p ${MVN_LOCAL_REPO}"
 
         sh """
             mvn clean test package -B \
