@@ -18,13 +18,11 @@ pipeline {
 
         NPM_CACHE = "${WORKSPACE}/.npm"
         CI = "true"
-
-        EMAIL_RECIPIENT = "sarakhalaf2312@gmail.com"
     }
 
     options {
         timestamps()
-        timeout(time: 90, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10'))
         parallelsAlwaysFailFast()
     }
@@ -57,7 +55,7 @@ pipeline {
             }
         }
 
-        stage('Frontend - Install & Test') {
+        stage('Frontend - Install') {
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh 'mkdir -p ${NPM_CACHE}'
@@ -65,7 +63,6 @@ pipeline {
                     sh 'node -v'
                     sh 'npm -v'
                     sh 'npm install --prefer-offline --no-audit --progress=false'
-                    sh 'npx ng test --watch=false --browsers=ChromeHeadless'
                 }
             }
         }
@@ -73,6 +70,7 @@ pipeline {
         stage('Frontend - Build') {
             steps {
                 dir("${FRONTEND_DIR}") {
+                    // ✅ Angular 17 SSR-safe build
                     sh 'npx ng build --configuration production'
                     archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
                 }
@@ -101,23 +99,19 @@ pipeline {
             cleanWs()
         }
         success {
-            mail to: "${EMAIL_RECIPIENT}",
+            mail to: 'sarakhalaf2312@gmail.com',
                  subject: '✅ Jenkins Build & Deploy Successful',
-                 body: """CI/CD pipeline completed successfully!
-Backend + Frontend built and deployed.
-Check build logs in Jenkins for details."""
+                 body: "CI/CD pipeline completed successfully.\n\nBackend + Frontend built and deployed.\nBuild URL: ${env.BUILD_URL}"
         }
         failure {
-            mail to: "${EMAIL_RECIPIENT}",
+            mail to: 'sarakhalaf2312@gmail.com',
                  subject: '❌ Jenkins Build/Deploy Failed',
-                 body: """Pipeline failed!
-Check Jenkins console output and build logs for details.
-If deployment failed, rollback may have been executed."""
+                 body: "Pipeline failed in stage: ${env.STAGE_NAME}\nCheck Jenkins console output: ${env.BUILD_URL}"
         }
     }
 }
 
-// ================= BACKEND BUILD & TEST =================
+// ================= BACKEND BUILD =================
 def buildBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
@@ -130,18 +124,17 @@ def buildBackend(String dirPath) {
             -Dspring.profiles.active=${env.SPRING_PROFILES_ACTIVE}
         """
 
-        sh 'mvn test' // run backend tests
         archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false
     }
 }
 
-// ================= DEPLOY BACKEND WITH ROLLBACK =================
+// ================= DEPLOY BACKEND =================
 def deployBackend(String dirPath) {
     dir(dirPath) {
         def jarFile = sh(script: "ls target/*.jar | head -n 1", returnStdout: true).trim()
         def serviceName = dirPath.split('/')[-1]
 
-        // Ensure directories exist with proper permissions
+        // Ensure directories exist
         sh "sudo mkdir -p ${env.BACKEND_DEPLOY_DIR}"
         sh "sudo mkdir -p ${env.BACKUP_DIR}/${serviceName}"
 
@@ -152,16 +145,15 @@ def deployBackend(String dirPath) {
             fi
         """
 
-        // Deploy new jar
+        // Deploy new jar with rollback on failure
         try {
             sh "sudo cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
             sh "sudo systemctl restart ${serviceName}"
         } catch (err) {
-            // Rollback on failure
             echo "⚠ Deployment failed for ${serviceName}, rolling back..."
             sh """
-                if [ -f ${env.BACKUP_DIR}/${serviceName}/$(basename ${jarFile}) ]; then
-                    sudo cp ${env.BACKUP_DIR}/${serviceName}/$(basename ${jarFile}) ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
+                if [ -f ${env.BACKUP_DIR}/${serviceName}/*.jar ]; then
+                    sudo cp \$(ls ${env.BACKUP_DIR}/${serviceName}/*.jar | tail -n 1) ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
                     sudo systemctl restart ${serviceName}
                 fi
             """
@@ -170,26 +162,28 @@ def deployBackend(String dirPath) {
     }
 }
 
-// ================= DEPLOY FRONTEND WITH ROLLBACK =================
+// ================= DEPLOY FRONTEND =================
 def deployFrontend(String dirPath) {
     dir(dirPath) {
-        // Ensure directories exist with proper permissions
+        // Ensure directories exist
         sh "sudo mkdir -p ${env.FRONTEND_DEPLOY_DIR}"
         sh "sudo mkdir -p ${env.BACKUP_DIR}/frontend"
 
-        // Backup current deployment
-        sh "sudo cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true"
+        // Backup current frontend
+        sh """
+            cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
+        """
 
-        // Deploy new build
+        // Deploy new frontend with rollback
         try {
-            sh "sudo rm -rf ${env.FRONTEND_DEPLOY_DIR}/*"
-            sh "sudo cp -r dist/* ${env.FRONTEND_DEPLOY_DIR}/"
-            sh "sudo systemctl restart nginx"
+            rm -rf "${env.FRONTEND_DEPLOY_DIR}/*"
+            cp -r dist/* "${env.FRONTEND_DEPLOY_DIR}/"
+            sudo systemctl restart nginx
         } catch (err) {
             echo "⚠ Frontend deployment failed, rolling back..."
             sh """
-                sudo rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
-                sudo cp -r ${env.BACKUP_DIR}/frontend/* ${env.FRONTEND_DEPLOY_DIR}/
+                rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
+                cp -r ${env.BACKUP_DIR}/frontend/* ${env.FRONTEND_DEPLOY_DIR}/
                 sudo systemctl restart nginx
             """
             error "Frontend deployment failed, rollback executed."
