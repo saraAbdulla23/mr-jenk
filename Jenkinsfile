@@ -103,10 +103,18 @@ pipeline {
                     sh 'npm config set cache ${NPM_CACHE} --global'
                     sh 'node -v'
                     sh 'npm -v'
-
                     sh 'npm install --prefer-offline --no-audit --progress=false'
 
-                    sh 'npx ng test --watch=false --browsers=ChromeHeadless || echo "⚠ Frontend tests failed (check logs)"'
+                    script {
+                        // Detect macOS ARM (M1/M2) to prevent ChromeHeadless issues
+                        def isMacARM = sh(script: "uname -m", returnStdout: true).trim() == "arm64"
+                        if (isMacARM) {
+                            echo "⚠ Skipping ChromeHeadless tests on macOS ARM — using Puppeteer headless fallback"
+                            sh 'npx ng test --watch=false --browsers=ChromeHeadlessCustom || echo "⚠ Frontend tests skipped/fallback"'
+                        } else {
+                            sh 'npx ng test --watch=false --browsers=ChromeHeadless || echo "⚠ Frontend tests failed (check logs)"'
+                        }
+                    }
                 }
             }
         }
@@ -121,15 +129,11 @@ pipeline {
         }
 
         stage('Deploy Backend') {
-            steps {
-                script { deployBackend("${BACKEND_DIR}") }
-            }
+            steps { script { deployBackend("${BACKEND_DIR}") } }
         }
 
         stage('Deploy Frontend') {
-            steps {
-                script { deployFrontend("${FRONTEND_DIR}") }
-            }
+            steps { script { deployFrontend("${FRONTEND_DIR}") } }
         }
     }
 
