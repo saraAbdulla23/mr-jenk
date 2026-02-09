@@ -68,13 +68,13 @@ pipeline {
         }
 
         stage('Frontend - Build') {
-            steps {
-                dir("${FRONTEND_DIR}") {
-                    sh 'npx ng build --configuration production'
-                    archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
-                }
-            }
+    steps {
+        dir("${FRONTEND_DIR}") {
+            sh 'npx ng build --configuration production --prerender=false'
+            archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
         }
+    }
+}
 
         stage('Deploy Backend') {
             steps {
