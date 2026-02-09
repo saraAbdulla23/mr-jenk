@@ -12,9 +12,9 @@ pipeline {
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
         SPRING_PROFILES_ACTIVE = "test"
 
-        BACKEND_DEPLOY_DIR  = "${WORKSPACE}/deploy/backend"
+        BACKEND_DEPLOY_DIR = "${WORKSPACE}/deploy/backend"
         FRONTEND_DEPLOY_DIR = "${WORKSPACE}/deploy/frontend"
-        BACKUP_DIR          = "${WORKSPACE}/deploy/backup"
+        BACKUP_DIR = "${WORKSPACE}/deploy/backup"
 
         NPM_CACHE = "${WORKSPACE}/.npm"
         CI = "true"
@@ -50,48 +50,33 @@ pipeline {
         stage('Set Chrome/Chromium Binary') {
             steps {
                 script {
-                    // Check if Chrome or Chromium is already available
+                    // Detect Chrome or Chromium
                     def chromePath = sh(script: 'which google-chrome || which chromium-browser || true', returnStdout: true).trim()
 
                     if (!chromePath) {
                         echo "⚠ Chrome/Chromium not found. Installing local Chromium..."
 
-                        // Create local bin folder in workspace
+                        // Prepare directory
+                        sh "mkdir -p ${WORKSPACE}/chromium"
+
+                        // Download latest stable Chromium (headless)
                         sh '''
-                            mkdir -p ${WORKSPACE}/chromium
-                            export CHROME_BIN=${WORKSPACE}/chromium/chrome
+                            CHROMIUM_URL=$(curl -s https://omahaproxy.appspot.com/linux | head -n1 | grep -v 404)
+                            if [ -z "$CHROMIUM_URL" ]; then
+                                CHROMIUM_URL="https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/1204567/chrome-linux.zip"
+                            fi
+                            echo "Downloading Chromium from $CHROMIUM_URL..."
+                            curl -L -o ${WORKSPACE}/chromium/chrome.zip $CHROMIUM_URL
+                            unzip -q ${WORKSPACE}/chromium/chrome.zip -d ${WORKSPACE}/chromium
+                            mv ${WORKSPACE}/chromium/chrome-linux/chrome ${WORKSPACE}/chromium/chrome
+                            chmod +x ${WORKSPACE}/chromium/chrome
                         '''
 
-                        // Download portable Chromium for Linux
-                        if (isUnix()) {
-                            sh '''
-                                if [ ! -f ${WORKSPACE}/chromium/chrome ]; then
-                                    echo "Downloading Chromium..."
-                                    CHROMIUM_URL=$(curl -s https://omahaproxy.appspot.com/linux | grep -v '404' | head -n1)
-                                    # fallback to known stable URL
-                                    CHROMIUM_URL="https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/1204567/chrome-linux.zip"
-                                    wget -q -O ${WORKSPACE}/chromium/chrome.zip $CHROMIUM_URL
-                                    unzip -q ${WORKSPACE}/chromium/chrome.zip -d ${WORKSPACE}/chromium
-                                    mv ${WORKSPACE}/chromium/chrome-linux/chrome ${WORKSPACE}/chromium/chrome
-                                    chmod +x ${WORKSPACE}/chromium/chrome
-                                fi
-                            '''
-                            chromePath = "${WORKSPACE}/chromium/chrome"
-                        } else {
-                            // macOS fallback
-                            sh '''
-                                if command -v brew > /dev/null; then
-                                    brew install --cask google-chrome || true
-                                else
-                                    echo "Homebrew not found — install Chrome manually."
-                                fi
-                            '''
-                            chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-                        }
+                        chromePath = "${WORKSPACE}/chromium/chrome"
                     }
 
                     if (!chromePath || !fileExists(chromePath)) {
-                        error "❌ Chrome/Chromium installation failed. Cannot run frontend tests."
+                        error "❌ Chrome or Chromium installation failed. Cannot run frontend tests."
                     }
 
                     env.CHROME_BIN = chromePath
