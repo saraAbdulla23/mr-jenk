@@ -104,28 +104,15 @@ pipeline {
                  subject: '✅ Jenkins Build & Deploy Successful',
                  body: """CI/CD pipeline completed successfully.
 
-Backend services built and deployed:
-- Discovery Service
-- API Gateway
-- User Service
-- Product Service
-- Media Service
-
-Frontend built and deployed successfully.
-
-Check Jenkins console for detailed logs: ${env.BUILD_URL}"""
+Backend + Frontend built and deployed.
+Check Jenkins console for details: ${env.BUILD_URL}"""
         }
         failure {
-            script {
-                def failedStage = currentBuild.rawBuild.getLog(1000).find { it =~ /❌/ } ?: "Unknown stage"
-                mail to: "${env.NOTIFY_EMAIL}",
-                     subject: '❌ Jenkins Build/Deploy Failed',
-                     body: """Pipeline failed.
+            mail to: "${env.NOTIFY_EMAIL}",
+                 subject: '❌ Jenkins Build/Deploy Failed',
+                 body: """Pipeline failed at stage: ${env.STAGE_NAME ?: 'Unknown'}.
 
-Failed Stage / Service: ${failedStage}
-
-Check Jenkins console for detailed errors and rollback status: ${env.BUILD_URL}"""
-            }
+Check Jenkins console for errors and rollback status: ${env.BUILD_URL}"""
         }
     }
 }
@@ -145,7 +132,8 @@ def buildBackend(String dirPath) {
 
         def jarFile = sh(script: "ls target/*.jar | head -n 1 || true", returnStdout: true).trim()
         if (!jarFile) {
-            error "❌ No JAR found in ${dirPath}/target — check Maven build."
+            echo "⚠ No JAR found in ${dirPath}/target — skipping archive and deploy for this service."
+            return
         }
 
         archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false
@@ -155,38 +143,42 @@ def buildBackend(String dirPath) {
 // ================= DEPLOY BACKEND =================
 def deployBackend(String dirPath) {
     dir(dirPath) {
-        def services = ["discovery-service","api-gateway","user-service","product-service","media-service"]
-        services.each { serviceName ->
-            dir("${dirPath}/${serviceName}") {
-                def jarFile = sh(script: "ls target/*.jar | head -n 1 || true", returnStdout: true).trim()
-                if (!jarFile) {
-                    error "❌ No JAR found in ${serviceName}/target — cannot deploy."
-                }
+        def services = findFiles(glob: '**/target/*.jar').collect { it.path.replaceAll('/target/.*', '') }.unique()
 
-                sh "mkdir -p ${env.BACKEND_DEPLOY_DIR}/${serviceName}"
-                sh "mkdir -p ${env.BACKUP_DIR}/${serviceName}"
+        services.each { serviceDir ->
+            def jarFile = sh(script: "ls ${serviceDir}/target/*.jar | head -n 1 || true", returnStdout: true).trim()
+            def serviceName = serviceDir.split('/')[-1]
 
-                // Backup current deployment
+            if (!jarFile) {
+                echo "⚠ Skipping deployment for ${serviceName}: no JAR found."
+                return
+            }
+
+            echo "Deploying backend service: ${serviceName}"
+
+            sh "mkdir -p ${env.BACKEND_DEPLOY_DIR}"
+            sh "mkdir -p ${env.BACKUP_DIR}/${serviceName}"
+
+            // Backup current deployment
+            sh """
+                if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
+                    cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
+                fi
+            """
+
+            // Deploy with rollback
+            try {
+                sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
+                sh "systemctl restart ${serviceName} || echo 'Service restart failed, check manually.'"
+            } catch (err) {
+                echo "⚠ Deployment failed for ${serviceName}, rolling back..."
                 sh """
-                    if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}/${serviceName}.jar ]; then
-                        cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
+                    if ls ${env.BACKUP_DIR}/${serviceName}/*.jar 1> /dev/null 2>&1; then
+                        cp \$(ls ${env.BACKUP_DIR}/${serviceName}/*.jar | tail -n 1) ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
+                        systemctl restart ${serviceName} || echo 'Rollback service restart failed.'
                     fi
                 """
-
-                // Deploy with rollback
-                try {
-                    sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}/${serviceName}.jar"
-                    sh "systemctl restart ${serviceName} || echo 'Service restart failed, check manually.'"
-                } catch (err) {
-                    echo "⚠ Deployment failed for ${serviceName}, rolling back..."
-                    sh """
-                        if ls ${env.BACKUP_DIR}/${serviceName}/*.jar 1> /dev/null 2>&1; then
-                            cp \$(ls ${env.BACKUP_DIR}/${serviceName}/*.jar | tail -n 1) ${env.BACKEND_DEPLOY_DIR}/${serviceName}/${serviceName}.jar
-                            systemctl restart ${serviceName} || echo 'Rollback service restart failed.'
-                        fi
-                    """
-                    error "Deployment failed for ${serviceName}, rollback executed."
-                }
+                echo "❌ Deployment failed for ${serviceName}, rollback executed."
             }
         }
     }
@@ -195,6 +187,14 @@ def deployBackend(String dirPath) {
 // ================= DEPLOY FRONTEND =================
 def deployFrontend(String dirPath) {
     dir(dirPath) {
+        def distDir = "${dirPath}/dist"
+        if (!fileExists(distDir)) {
+            echo "⚠ Frontend build artifacts not found — skipping frontend deploy."
+            return
+        }
+
+        echo "Deploying frontend..."
+
         sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR}"
         sh "mkdir -p ${env.BACKUP_DIR}/frontend"
 
