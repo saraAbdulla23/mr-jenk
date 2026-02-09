@@ -48,40 +48,7 @@ pipeline {
             }
         }
 
-        stage('Detect Changes') {
-            steps {
-                script {
-                    // Detect changed backend services
-                    def backendServices = sh(
-                        script: "git diff --name-only HEAD~1 HEAD backend/*",
-                        returnStdout: true
-                    ).trim().split('\n').collect { it.tokenize('/')[1] }.unique()
-
-                    // Detect frontend changes
-                    def frontendChanged = sh(
-                        script: "git diff --name-only HEAD~1 HEAD front",
-                        returnStdout: true
-                    ).trim()
-
-                    // First run detection: if HEAD~1 doesn't exist
-                    def firstRun = sh(script: "git rev-parse HEAD~1", returnStatus: true) != 0
-                    if (firstRun) {
-                        echo "⚡ First run detected — building all backend services and frontend"
-                        backendServices = ['discovery-service', 'api-gateway', 'user-service', 'product-service', 'media-service']
-                        frontendChanged = true
-                    }
-
-                    env.BACKEND_SERVICES = backendServices.join(',')
-                    env.FRONTEND_CHANGED = frontendChanged ? "true" : "false"
-
-                    echo "Changed backend services: ${env.BACKEND_SERVICES}"
-                    echo "Frontend changed: ${env.FRONTEND_CHANGED}"
-                }
-            }
-        }
-
         stage('Setup Puppeteer & Chrome') {
-            when { expression { env.FRONTEND_CHANGED == "true" } }
             steps {
                 dir("${FRONTEND_DIR}") {
                     script {
@@ -109,23 +76,20 @@ pipeline {
         }
 
         stage('Backend - Build & Test') {
-            when { expression { env.BACKEND_SERVICES } }
             steps {
                 script {
-                    def services = env.BACKEND_SERVICES.tokenize(',')
-                    def parallelBuilds = [:]
-
-                    services.each { svc ->
-                        parallelBuilds[svc] = { buildAndTestBackend("${BACKEND_DIR}/${svc}") }
-                    }
-
-                    parallel parallelBuilds
+                    parallel(
+                        "Discovery Service": { buildAndTestBackend("${BACKEND_DIR}/discovery-service") },
+                        "API Gateway":       { buildAndTestBackend("${BACKEND_DIR}/api-gateway") },
+                        "User Service":      { buildAndTestBackend("${BACKEND_DIR}/user-service") },
+                        "Product Service":   { buildAndTestBackend("${BACKEND_DIR}/product-service") },
+                        "Media Service":     { buildAndTestBackend("${BACKEND_DIR}/media-service") }
+                    )
                 }
             }
         }
 
         stage('Frontend - Install & Test') {
-            when { expression { env.FRONTEND_CHANGED == "true" } }
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh 'mkdir -p ${NPM_CACHE}'
@@ -148,7 +112,6 @@ pipeline {
         }
 
         stage('Frontend - Build') {
-            when { expression { env.FRONTEND_CHANGED == "true" } }
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh 'npx ng build --configuration production'
@@ -158,24 +121,11 @@ pipeline {
         }
 
         stage('Deploy Backend') {
-            when { expression { env.BACKEND_SERVICES } }
             steps { script { deployBackend("${BACKEND_DIR}") } }
         }
 
         stage('Deploy Frontend') {
-            when { expression { env.FRONTEND_CHANGED == "true" } }
             steps { script { deployFrontend("${FRONTEND_DIR}") } }
-        }
-
-        stage('Build Summary') {
-            steps {
-                script {
-                    echo "================ CI/CD BUILD SUMMARY ================"
-                    echo "Backend services built: ${env.BACKEND_SERVICES ?: 'None'}"
-                    echo "Frontend built: ${env.FRONTEND_CHANGED == 'true' ? 'Yes' : 'No'}"
-                    echo "====================================================="
-                }
-            }
         }
     }
 
@@ -186,9 +136,7 @@ pipeline {
                  subject: '✅ Jenkins Build & Deploy Successful',
                  body: """CI/CD pipeline completed successfully.
 
-Backend services built: ${env.BACKEND_SERVICES ?: 'None'}
-Frontend built: ${env.FRONTEND_CHANGED == 'true' ? 'Yes' : 'No'}
-
+Backend + Frontend built and deployed.
 Check Jenkins console: ${env.BUILD_URL}"""
         }
         failure {
