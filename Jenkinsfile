@@ -56,17 +56,18 @@ pipeline {
                         sh "mkdir -p ${PUPPETEER_CACHE}"
                         env.PUPPETEER_CACHE_DIR = "${PUPPETEER_CACHE}"
                         env.PUPPETEER_DOWNLOAD_HOST = "https://storage.googleapis.com/chromium-browser-snapshots"
+                        env.PUPPETEER_DOWNLOAD_ARCH = "arm64"  // ensures ARM Chromium on Apple Silicon / CI
 
-                        // Install Puppeteer (default behavior downloads compatible Chromium)
-                        sh 'npm install puppeteer'
+                        // Install Puppeteer
+                        sh 'npm install puppeteer --ignore-scripts'
 
-                        // Get Chromium executable path from Puppeteer
+                        // Get Chromium executable path
                         def chromePath = sh(
                             script: 'node -e "console.log(require(\'puppeteer\').executablePath())"',
                             returnStdout: true
                         ).trim()
 
-                        // Fallback to system-installed Chrome/Chromium
+                        // fallback to system-installed Chrome
                         if (!fileExists(chromePath)) {
                             chromePath = sh(script: 'which google-chrome || which chromium-browser || true', returnStdout: true).trim()
                         }
@@ -106,7 +107,8 @@ pipeline {
 
                     sh 'npm install --prefer-offline --no-audit --progress=false'
 
-                    sh 'npx ng test --watch=false --browsers=ChromeHeadless'
+                    // run Angular tests with ChromeHeadless
+                    sh 'npx ng test --watch=false --browsers=ChromeHeadless --no-sandbox'
                 }
             }
         }
