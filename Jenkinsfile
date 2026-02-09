@@ -7,19 +7,18 @@ pipeline {
     }
 
     environment {
-        BACKEND_DIR    = "backend"
-        FRONTEND_DIR   = "front"
+        BACKEND_DIR  = "backend"
+        FRONTEND_DIR = "front"
+
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
         SPRING_PROFILES_ACTIVE = "test"
 
-        BACKEND_DEPLOY_DIR = "${WORKSPACE}/deploy/backend"
+        BACKEND_DEPLOY_DIR  = "${WORKSPACE}/deploy/backend"
         FRONTEND_DEPLOY_DIR = "${WORKSPACE}/deploy/frontend"
-        BACKUP_DIR = "${WORKSPACE}/deploy/backup"
-
-        NPM_CACHE = "${WORKSPACE}/.npm"
-        CI = "true"
+        BACKUP_DIR          = "${WORKSPACE}/deploy/backup"
 
         NOTIFY_EMAIL = "sarakhalaf2312@gmail.com"
+        CI = "true"
     }
 
     options {
@@ -27,6 +26,10 @@ pipeline {
         timeout(time: 60, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10'))
         parallelsAlwaysFailFast()
+    }
+
+    triggers {
+        pollSCM('H/2 * * * *')
     }
 
     stages {
@@ -43,41 +46,50 @@ pipeline {
             }
         }
 
+        // ================= BACKEND BUILD & TEST =================
         stage('Backend - Build & Test') {
             steps {
                 script {
                     parallel(
-                        "Discovery Service": { buildBackend("${BACKEND_DIR}/discovery-service") },
-                        "API Gateway":       { buildBackend("${BACKEND_DIR}/api-gateway") },
-                        "User Service":      { buildBackend("${BACKEND_DIR}/user-service") },
-                        "Product Service":   { buildBackend("${BACKEND_DIR}/product-service") },
-                        "Media Service":     { buildBackend("${BACKEND_DIR}/media-service") }
+                        "Discovery Service": { buildAndTestBackend("${BACKEND_DIR}/discovery-service") },
+                        "API Gateway":       { buildAndTestBackend("${BACKEND_DIR}/api-gateway") },
+                        "User Service":      { buildAndTestBackend("${BACKEND_DIR}/user-service") },
+                        "Product Service":   { buildAndTestBackend("${BACKEND_DIR}/product-service") },
+                        "Media Service":     { buildAndTestBackend("${BACKEND_DIR}/media-service") }
                     )
                 }
             }
         }
 
-        stage('Frontend - Install') {
+        // ================= FRONTEND TEST =================
+        stage('Frontend - Test') {
             steps {
                 dir("${FRONTEND_DIR}") {
-                    sh 'mkdir -p ${NPM_CACHE}'
-                    sh 'npm config set cache ${NPM_CACHE} --global'
-                    sh 'node -v'
-                    sh 'npm -v'
-                    sh 'npm install --prefer-offline --no-audit --progress=false'
+                    script {
+                        sh 'npm install'
+
+                        def arch = sh(script: "uname -m", returnStdout: true).trim()
+                        if (arch.contains('arm') || arch.contains('aarch64')) {
+                            error("ARM architecture (${arch}) detected. Frontend tests cannot run reliably on this agent.")
+                        }
+
+                        sh 'npx ng test --watch=false --browsers=ChromeHeadless'
+                    }
                 }
             }
         }
 
+        // ================= FRONTEND BUILD =================
         stage('Frontend - Build') {
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh 'npx ng build --configuration production'
-                    archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'dist/**', allowEmptyArchive: false
                 }
             }
         }
 
+        // ================= DEPLOY BACKEND =================
         stage('Deploy Backend') {
             steps {
                 script {
@@ -86,6 +98,7 @@ pipeline {
             }
         }
 
+        // ================= DEPLOY FRONTEND =================
         stage('Deploy Frontend') {
             steps {
                 script {
@@ -96,116 +109,106 @@ pipeline {
     }
 
     post {
+        success {
+            mail(
+                to: env.NOTIFY_EMAIL,
+                subject: '✅ CI/CD Pipeline SUCCESS',
+                body: """Build, tests, and deployment completed successfully.
+
+Jenkins URL:
+${env.BUILD_URL}
+"""
+            )
+        }
+
+        failure {
+            mail(
+                to: env.NOTIFY_EMAIL,
+                subject: '❌ CI/CD Pipeline FAILED',
+                body: """Pipeline failed at stage: ${env.STAGE_NAME}
+
+Check Jenkins logs:
+${env.BUILD_URL}
+"""
+            )
+        }
+
         always {
             cleanWs()
-        }
-        success {
-            mail to: "${env.NOTIFY_EMAIL}",
-                 subject: '✅ Jenkins Build & Deploy Successful',
-                 body: """CI/CD pipeline completed successfully.
-
-Backend + Frontend built and deployed.
-Check Jenkins console for details: ${env.BUILD_URL}"""
-        }
-        failure {
-            mail to: "${env.NOTIFY_EMAIL}",
-                 subject: '❌ Jenkins Build/Deploy Failed',
-                 body: """Pipeline failed at stage: ${env.STAGE_NAME ?: 'Unknown'}.
-
-Check Jenkins console for errors and rollback status: ${env.BUILD_URL}"""
         }
     }
 }
 
-// ================= BACKEND BUILD =================
-def buildBackend(String dirPath) {
+// ================= BACKEND BUILD & TEST FUNCTION =================
+def buildAndTestBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
         sh 'mvn -version'
-        sh 'mkdir -p ${MVN_LOCAL_REPO}'
+        sh "mkdir -p ${env.MVN_LOCAL_REPO}"
 
         sh """
-            mvn clean package -B \
+            mvn clean test package -B \
             -Dmaven.repo.local=${env.MVN_LOCAL_REPO} \
             -Dspring.profiles.active=${env.SPRING_PROFILES_ACTIVE}
         """
-
-        def jarFile = sh(script: "ls target/*.jar | head -n 1 || true", returnStdout: true).trim()
-        if (!jarFile) {
-            echo "⚠ No JAR found in ${dirPath}/target — skipping archive and deploy for this service."
-            return
-        }
 
         archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false
     }
 }
 
-// ================= DEPLOY BACKEND =================
+// ================= DEPLOY BACKEND FUNCTION =================
 def deployBackend(String dirPath) {
     dir(dirPath) {
-        def services = findFiles(glob: '**/target/*.jar').collect { it.path.replaceAll('/target/.*', '') }.unique()
+        def services = findFiles(glob: '**/target/*.jar')
+            .collect { it.path.replaceAll('/target/.*', '') }
+            .unique()
 
         services.each { serviceDir ->
-            def jarFile = sh(script: "ls ${serviceDir}/target/*.jar | head -n 1 || true", returnStdout: true).trim()
-            def serviceName = serviceDir.split('/')[-1]
-
-            if (!jarFile) {
-                echo "⚠ Skipping deployment for ${serviceName}: no JAR found."
-                return
-            }
+            def serviceName = serviceDir.tokenize('/').last()
+            def jarFile = sh(
+                script: "ls ${serviceDir}/target/*.jar | head -n 1",
+                returnStdout: true
+            ).trim()
 
             echo "Deploying backend service: ${serviceName}"
 
-            sh "mkdir -p ${env.BACKEND_DEPLOY_DIR}"
-            sh "mkdir -p ${env.BACKUP_DIR}/${serviceName}"
+            sh "mkdir -p ${env.BACKEND_DEPLOY_DIR} ${env.BACKUP_DIR}/${serviceName}"
 
-            // Backup current deployment
             sh """
                 if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
                     cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
                 fi
             """
 
-            // Deploy with rollback
             try {
                 sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
-                sh "systemctl restart ${serviceName} || echo 'Service restart failed, check manually.'"
-            } catch (err) {
-                echo "⚠ Deployment failed for ${serviceName}, rolling back..."
+            } catch (e) {
+                echo "Rollback for ${serviceName}"
                 sh """
-                    if ls ${env.BACKUP_DIR}/${serviceName}/*.jar 1> /dev/null 2>&1; then
-                        cp \$(ls ${env.BACKUP_DIR}/${serviceName}/*.jar | tail -n 1) ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
-                        systemctl restart ${serviceName} || echo 'Rollback service restart failed.'
-                    fi
+                    cp \$(ls ${env.BACKUP_DIR}/${serviceName}/*.jar | tail -n 1) \
+                       ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
                 """
-                echo "❌ Deployment failed for ${serviceName}, rollback executed."
+                error("Deployment failed for ${serviceName}. Rollback executed.")
             }
         }
     }
 }
 
-// ================= DEPLOY FRONTEND =================
+// ================= DEPLOY FRONTEND FUNCTION =================
 def deployFrontend(String dirPath) {
     dir(dirPath) {
-        def distDir = "${dirPath}/dist"
+        def distDir = "dist/front"
+
         if (!fileExists(distDir)) {
-            echo "⚠ Frontend build artifacts not found — skipping frontend deploy."
-            return
+            error("Frontend build artifacts not found. Deployment aborted.")
         }
 
-        echo "Deploying frontend..."
+        sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR} ${env.BACKUP_DIR}/frontend"
 
-        sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR}"
-        sh "mkdir -p ${env.BACKUP_DIR}/frontend"
-
-        // Backup current frontend
         sh """
             cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
             rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
-            cp -r dist/* ${env.FRONTEND_DEPLOY_DIR}/
+            cp -r ${distDir}/* ${env.FRONTEND_DEPLOY_DIR}/
         """
-
-        // Restart web server
-        sh "systemctl restart nginx || echo 'Nginx restart failed, check manually.'"
     }
 }
