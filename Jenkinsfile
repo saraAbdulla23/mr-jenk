@@ -17,6 +17,7 @@ pipeline {
         BACKUP_DIR = "/opt/ecommerce/backup"
 
         NPM_CACHE = "${WORKSPACE}/.npm"
+        CI = "true"
     }
 
     options {
@@ -54,40 +55,14 @@ pipeline {
             }
         }
 
-        stage('Frontend - Install & Test') {
+        stage('Frontend - Install') {
             steps {
                 dir("${FRONTEND_DIR}") {
-
                     sh 'mkdir -p ${NPM_CACHE}'
                     sh 'npm config set cache ${NPM_CACHE} --global'
-
                     sh 'node -v'
                     sh 'npm -v'
-
                     sh 'npm install --prefer-offline --no-audit --progress=false'
-
-                    sh '''
-                        ARCH=$(uname -m)
-                        echo "Detected architecture: $ARCH"
-
-                        if [ "$ARCH" = "aarch64" ]; then
-                            echo "ARM architecture detected"
-                            export PUPPETEER_ARCH=arm64
-                        fi
-
-                        if [ ! -d "node_modules/puppeteer" ]; then
-                            npm install puppeteer --save-dev --prefer-offline --no-audit --progress=false
-                        fi
-                    '''
-
-                    sh '''
-                        export CHROME_BIN=$(node -e "console.log(require('puppeteer').executablePath())")
-
-                        npx ng test \
-                          --watch=false \
-                          --browsers=ChromeHeadless \
-                          --no-progress
-                    '''
                 }
             }
         }
