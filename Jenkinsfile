@@ -29,6 +29,11 @@ pipeline {
         parallelsAlwaysFailFast()
     }
 
+    triggers {
+        // Automatically trigger on Git push (polling every 2 mins)
+        pollSCM('H/2 * * * *')
+    }
+
     stages {
 
         stage('Checkout SCM') {
@@ -47,17 +52,17 @@ pipeline {
             steps {
                 script {
                     parallel(
-                        "Discovery Service": { buildBackend("${BACKEND_DIR}/discovery-service") },
-                        "API Gateway":       { buildBackend("${BACKEND_DIR}/api-gateway") },
-                        "User Service":      { buildBackend("${BACKEND_DIR}/user-service") },
-                        "Product Service":   { buildBackend("${BACKEND_DIR}/product-service") },
-                        "Media Service":     { buildBackend("${BACKEND_DIR}/media-service") }
+                        "Discovery Service": { buildAndTestBackend("${BACKEND_DIR}/discovery-service") },
+                        "API Gateway":       { buildAndTestBackend("${BACKEND_DIR}/api-gateway") },
+                        "User Service":      { buildAndTestBackend("${BACKEND_DIR}/user-service") },
+                        "Product Service":   { buildAndTestBackend("${BACKEND_DIR}/product-service") },
+                        "Media Service":     { buildAndTestBackend("${BACKEND_DIR}/media-service") }
                     )
                 }
             }
         }
 
-        stage('Frontend - Install') {
+        stage('Frontend - Install & Test') {
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh 'mkdir -p ${NPM_CACHE}'
@@ -65,6 +70,7 @@ pipeline {
                     sh 'node -v'
                     sh 'npm -v'
                     sh 'npm install --prefer-offline --no-audit --progress=false'
+                    sh 'npm run test -- --watch=false --browsers=ChromeHeadless'
                 }
             }
         }
@@ -73,7 +79,7 @@ pipeline {
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh 'npx ng build --configuration production'
-                    archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'dist/**', allowEmptyArchive: false
                 }
             }
         }
@@ -117,15 +123,15 @@ Check Jenkins console for errors and rollback status: ${env.BUILD_URL}"""
     }
 }
 
-// ================= BACKEND BUILD =================
-def buildBackend(String dirPath) {
+// ================= BACKEND BUILD & TEST =================
+def buildAndTestBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
         sh 'mvn -version'
         sh 'mkdir -p ${MVN_LOCAL_REPO}'
 
         sh """
-            mvn clean package -B \
+            mvn clean test package -B \
             -Dmaven.repo.local=${env.MVN_LOCAL_REPO} \
             -Dspring.profiles.active=${env.SPRING_PROFILES_ACTIVE}
         """
@@ -169,13 +175,22 @@ def deployBackend(String dirPath) {
             // Deploy with rollback
             try {
                 sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
-                sh "systemctl restart ${serviceName} || echo 'Service restart failed, check manually.'"
+                // Restart service if systemctl exists
+                sh """
+                    if command -v systemctl > /dev/null; then
+                        systemctl restart ${serviceName} || echo 'Service restart failed, check manually.'
+                    else
+                        echo 'systemctl not available — restart manually.'
+                    fi
+                """
             } catch (err) {
                 echo "⚠ Deployment failed for ${serviceName}, rolling back..."
                 sh """
                     if ls ${env.BACKUP_DIR}/${serviceName}/*.jar 1> /dev/null 2>&1; then
                         cp \$(ls ${env.BACKUP_DIR}/${serviceName}/*.jar | tail -n 1) ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
-                        systemctl restart ${serviceName} || echo 'Rollback service restart failed.'
+                        if command -v systemctl > /dev/null; then
+                            systemctl restart ${serviceName} || echo 'Rollback service restart failed.'
+                        fi
                     fi
                 """
                 echo "❌ Deployment failed for ${serviceName}, rollback executed."
@@ -187,7 +202,7 @@ def deployBackend(String dirPath) {
 // ================= DEPLOY FRONTEND =================
 def deployFrontend(String dirPath) {
     dir(dirPath) {
-        def distDir = "${dirPath}/dist"
+        def distDir = "${dirPath}/dist/front"
         if (!fileExists(distDir)) {
             echo "⚠ Frontend build artifacts not found — skipping frontend deploy."
             return
@@ -202,10 +217,16 @@ def deployFrontend(String dirPath) {
         sh """
             cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
             rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
-            cp -r dist/* ${env.FRONTEND_DEPLOY_DIR}/
+            cp -r ${distDir}/* ${env.FRONTEND_DEPLOY_DIR}/
         """
 
-        // Restart web server
-        sh "systemctl restart nginx || echo 'Nginx restart failed, check manually.'"
+        // Restart web server if systemctl exists
+        sh """
+            if command -v systemctl > /dev/null; then
+                systemctl restart nginx || echo 'Nginx restart failed, check manually.'
+            else
+                echo 'systemctl not available — restart nginx manually.'
+            fi
+        """
     }
 }
