@@ -57,40 +57,22 @@ pipeline {
                         env.PUPPETEER_CACHE_DIR = "${PUPPETEER_CACHE}"
                         env.PUPPETEER_DOWNLOAD_HOST = "https://storage.googleapis.com/chromium-browser-snapshots"
 
-                        // Install Puppeteer but skip download first
-                        sh 'npm install puppeteer --ignore-scripts'
+                        // Install Puppeteer (default behavior downloads compatible Chromium)
+                        sh 'npm install puppeteer'
 
-                        // Attempt to detect Chromium binary from Puppeteer or system
+                        // Get Chromium executable path from Puppeteer
                         def chromePath = sh(
                             script: 'node -e "console.log(require(\'puppeteer\').executablePath())"',
                             returnStdout: true
                         ).trim()
 
+                        // Fallback to system-installed Chrome/Chromium
                         if (!fileExists(chromePath)) {
                             chromePath = sh(script: 'which google-chrome || which chromium-browser || true', returnStdout: true).trim()
                         }
 
                         if (!chromePath) {
-                            echo "⚠ Chrome/Chromium not found — installing local Chromium..."
-                            def arch = sh(script: 'uname -m', returnStdout: true).trim()
-                            def platform = (arch == "aarch64") ? "Linux_ARM64" : "Linux_x64"
-                            def version = "1551367"
-                            def chromeZip = "${WORKSPACE}/chromium/chrome.zip"
-                            def chromeDir = "${WORKSPACE}/chromium"
-
-                            // Ensure previous downloads are cleaned
-                            sh "rm -rf ${chromeDir} && mkdir -p ${chromeDir}"
-
-                            sh """
-                                curl -L -o ${chromeZip} https://commondatastorage.googleapis.com/chromium-browser-snapshots/${platform}/${version}/chrome-linux.zip
-                            """
-
-                            def unzipResult = sh(script: "unzip -q ${chromeZip} -d ${chromeDir} || echo 'UNZIP_FAILED'", returnStdout: true).trim()
-                            if (unzipResult == "UNZIP_FAILED" || !fileExists("${chromeDir}/chrome-linux/chrome")) {
-                                error "❌ Chromium installation failed. Check download URL or permissions."
-                            }
-
-                            chromePath = "${chromeDir}/chrome-linux/chrome"
+                            error "❌ Chrome/Chromium not found. Install system Chrome or let Puppeteer download it."
                         }
 
                         env.CHROME_BIN = chromePath
