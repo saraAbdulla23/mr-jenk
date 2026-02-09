@@ -19,6 +19,9 @@ pipeline {
         NPM_CACHE = "${WORKSPACE}/.npm"
         CI = "true"
 
+        // Dynamic Chrome binary path for Linux nodes
+        CHROME_BIN = "" // will be set in a stage below
+
         NOTIFY_EMAIL = "sarakhalaf2312@gmail.com"
     }
 
@@ -47,6 +50,20 @@ pipeline {
             }
         }
 
+        stage('Set Chrome Binary') {
+            steps {
+                script {
+                    // Detect Chrome or Chromium binary dynamically on Linux
+                    def chromePath = sh(script: "which google-chrome || which chromium-browser || true", returnStdout: true).trim()
+                    if (!chromePath) {
+                        error "❌ Chrome or Chromium not found on this node. Install one to run frontend tests."
+                    }
+                    env.CHROME_BIN = chromePath
+                    echo "✅ Using Chrome binary: ${env.CHROME_BIN}"
+                }
+            }
+        }
+
         stage('Backend - Build & Test') {
             steps {
                 script {
@@ -69,6 +86,8 @@ pipeline {
                     sh 'node -v'
                     sh 'npm -v'
                     sh 'npm install --prefer-offline --no-audit --progress=false'
+
+                    // Run Karma tests using the detected Chrome binary
                     sh 'npm run test -- --watch=false --browsers=ChromeHeadless'
                 }
             }
@@ -164,12 +183,14 @@ def deployBackend(String dirPath) {
             sh "mkdir -p ${env.BACKEND_DEPLOY_DIR}"
             sh "mkdir -p ${env.BACKUP_DIR}/${serviceName}"
 
+            // Backup current deployment
             sh """
                 if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
                     cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
                 fi
             """
 
+            // Deploy with rollback
             try {
                 sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
                 sh """
