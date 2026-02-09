@@ -17,6 +17,7 @@ pipeline {
         BACKUP_DIR = "${WORKSPACE}/deploy/backup"
 
         NPM_CACHE = "${WORKSPACE}/.npm"
+        PUPPETEER_CACHE = "${WORKSPACE}/.cache/puppeteer"
         CI = "true"
 
         NOTIFY_EMAIL = "sarakhalaf2312@gmail.com"
@@ -47,43 +48,26 @@ pipeline {
             }
         }
 
-        stage('Set Chrome/Chromium Binary') {
+        stage('Set Chrome/Chromium Binary with Puppeteer Cache') {
             steps {
-                script {
-                    def chromePath = sh(script: 'which google-chrome || which chromium-browser || true', returnStdout: true).trim()
+                dir("${FRONTEND_DIR}") {
+                    script {
+                        // Create Puppeteer cache folder
+                        sh "mkdir -p ${PUPPETEER_CACHE}"
+                        sh "npm config set puppeteer_download_host https://storage.googleapis.com/chromium-browser-snapshots"
+                        sh "npm config set PUPPETEER_CACHE ${PUPPETEER_CACHE}"
+                        
+                        // Install puppeteer (with caching)
+                        sh 'npm install puppeteer --ignore-scripts'
 
-                    if (!chromePath) {
-                        echo "⚠ Chrome/Chromium not found. Installing local Chromium..."
-                        sh "mkdir -p ${WORKSPACE}/chromium"
-
-                        // Detect architecture (x86_64 or aarch64)
-                        def arch = sh(script: "uname -m", returnStdout: true).trim()
-                        def platform = (arch == "aarch64") ? "Linux_ARM64" : "Linux_x64"
-                        echo "Detected architecture: ${arch} → Using Chromium platform: ${platform}"
-
-                        // Use a known working snapshot version per platform
-                        def snapshot = (arch == "aarch64") ? "1551367" : "1204567"
-                        echo "Using Chromium snapshot version: ${snapshot}"
-
-                        // Download and unzip Chromium
-                        sh """
-                            CHROME_ZIP=${WORKSPACE}/chromium/chrome.zip
-                            echo "Downloading Chromium snapshot ${snapshot} for ${platform}..."
-                            curl -L -o \$CHROME_ZIP https://commondatastorage.googleapis.com/chromium-browser-snapshots/${platform}/${snapshot}/chrome-linux.zip
-                            unzip -q \$CHROME_ZIP -d ${WORKSPACE}/chromium
-                            mv ${WORKSPACE}/chromium/chrome-linux/chrome ${WORKSPACE}/chromium/chrome
-                            chmod +x ${WORKSPACE}/chromium/chrome
-                        """
-
-                        chromePath = "${WORKSPACE}/chromium/chrome"
+                        // Set CHROME_BIN to Puppeteer's downloaded Chromium
+                        env.CHROME_BIN = sh(
+                            script: "node -e \"console.log(require('puppeteer').executablePath())\"",
+                            returnStdout: true
+                        ).trim()
+                        
+                        echo "✅ Chrome binary set to: ${env.CHROME_BIN}"
                     }
-
-                    if (!chromePath || !fileExists(chromePath)) {
-                        error "❌ Chrome/Chromium installation failed. Cannot run frontend tests."
-                    }
-
-                    env.CHROME_BIN = chromePath
-                    echo "✅ Chrome binary set to: ${env.CHROME_BIN}"
                 }
             }
         }
@@ -110,8 +94,12 @@ pipeline {
                     sh 'node -v'
                     sh 'npm -v'
                     sh 'npm install --prefer-offline --no-audit --progress=false'
-                    // Run tests headless safely
-                    sh 'npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox'
+                    
+                    // Angular tests with Puppeteer Chromium
+                    sh """
+                        export CHROME_BIN=${env.CHROME_BIN}
+                        npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox
+                    """
                 }
             }
         }
@@ -126,11 +114,15 @@ pipeline {
         }
 
         stage('Deploy Backend') {
-            steps { script { deployBackend("${BACKEND_DIR}") } }
+            steps {
+                script { deployBackend("${BACKEND_DIR}") }
+            }
         }
 
         stage('Deploy Frontend') {
-            steps { script { deployFrontend("${FRONTEND_DIR}") } }
+            steps {
+                script { deployFrontend("${FRONTEND_DIR}") }
+            }
         }
     }
 
@@ -196,14 +188,12 @@ def deployBackend(String dirPath) {
             sh "mkdir -p ${env.BACKEND_DEPLOY_DIR}"
             sh "mkdir -p ${env.BACKUP_DIR}/${serviceName}"
 
-            // Backup current deployment
             sh """
                 if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
                     cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
                 fi
             """
 
-            // Deploy with rollback
             try {
                 sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
                 sh """
@@ -243,14 +233,12 @@ def deployFrontend(String dirPath) {
         sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR}"
         sh "mkdir -p ${env.BACKUP_DIR}/frontend"
 
-        // Backup current frontend
         sh """
             cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
             rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
             cp -r ${distDir}/* ${env.FRONTEND_DEPLOY_DIR}/
         """
 
-        // Restart web server if systemctl exists
         sh """
             if command -v systemctl > /dev/null; then
                 systemctl restart nginx || echo 'Nginx restart failed, check manually.'
