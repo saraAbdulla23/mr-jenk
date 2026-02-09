@@ -70,7 +70,7 @@ pipeline {
         stage('Frontend - Build') {
             steps {
                 dir("${FRONTEND_DIR}") {
-                    // ✅ Correct Angular SSR build
+                    // ✅ Angular 17 SSR-safe build
                     sh 'npx ng build --configuration production'
                     archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
                 }
@@ -95,7 +95,9 @@ pipeline {
     }
 
     post {
-        always { cleanWs() }
+        always {
+            cleanWs()
+        }
         success {
             mail to: 'sarakhalaf2312@gmail.com',
                  subject: '✅ Jenkins Build & Deploy Successful',
@@ -106,5 +108,52 @@ pipeline {
                  subject: '❌ Jenkins Build/Deploy Failed',
                  body: 'Pipeline failed. Check Jenkins console output for details.'
         }
+    }
+}
+
+// ================= BACKEND BUILD =================
+def buildBackend(String dirPath) {
+    dir(dirPath) {
+        sh 'java -version'
+        sh 'mvn -version'
+        sh 'mkdir -p ${MVN_LOCAL_REPO}'
+
+        sh """
+            mvn clean package -B \
+            -Dmaven.repo.local=${env.MVN_LOCAL_REPO} \
+            -Dspring.profiles.active=${env.SPRING_PROFILES_ACTIVE}
+        """
+
+        archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false
+    }
+}
+
+// ================= DEPLOY BACKEND =================
+def deployBackend(String dirPath) {
+    dir(dirPath) {
+        def jarFile = sh(script: "ls target/*.jar | head -n 1", returnStdout: true).trim()
+        def serviceName = dirPath.split('/')[-1]
+
+        sh """
+            mkdir -p ${env.BACKUP_DIR}/${serviceName}
+            if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
+                cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
+            fi
+            cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
+            systemctl restart ${serviceName}
+        """
+    }
+}
+
+// ================= DEPLOY FRONTEND =================
+def deployFrontend(String dirPath) {
+    dir(dirPath) {
+        sh """
+            mkdir -p ${env.BACKUP_DIR}/frontend
+            cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
+            rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
+            cp -r dist/* ${env.FRONTEND_DEPLOY_DIR}/
+            systemctl restart nginx
+        """
     }
 }
