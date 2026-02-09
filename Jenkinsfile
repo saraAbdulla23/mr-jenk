@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'selenium/standalone-chrome:latest' // Chrome pre-installed
-            args '-u root:root' // run as root if needed
-        }
-    }
+    agent none // We'll define agents per stage
 
     tools {
         maven 'maven-3'
@@ -41,6 +36,7 @@ pipeline {
     stages {
 
         stage('Checkout SCM') {
+            agent any // Use the Jenkins node for Git
             steps {
                 checkout([
                     $class: 'GitSCM',
@@ -53,15 +49,18 @@ pipeline {
         }
 
         stage('Set Chrome Binary') {
+            agent {
+                docker {
+                    image 'selenium/standalone-chrome:latest'
+                    args '-u root:root'
+                }
+            }
             steps {
                 script {
-                    // Chrome should already exist in the Docker image
                     def chromePath = sh(script: 'which google-chrome || which chromium-browser || true', returnStdout: true).trim()
-
                     if (!chromePath) {
                         error "❌ Chrome or Chromium not found in the Docker image!"
                     }
-
                     env.CHROME_BIN = chromePath
                     echo "✅ Chrome binary set to: ${env.CHROME_BIN}"
                 }
@@ -69,6 +68,12 @@ pipeline {
         }
 
         stage('Backend - Build & Test') {
+            agent {
+                docker {
+                    image 'maven:3.9.3-openjdk-17' // Maven + JDK
+                    args '-u root:root'
+                }
+            }
             steps {
                 script {
                     parallel(
@@ -83,6 +88,12 @@ pipeline {
         }
 
         stage('Frontend - Install & Test') {
+            agent {
+                docker {
+                    image 'node:20'
+                    args '-u root:root'
+                }
+            }
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh 'mkdir -p ${NPM_CACHE}'
@@ -96,6 +107,12 @@ pipeline {
         }
 
         stage('Frontend - Build') {
+            agent {
+                docker {
+                    image 'node:20'
+                    args '-u root:root'
+                }
+            }
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh 'npx ng build --configuration production'
@@ -105,6 +122,7 @@ pipeline {
         }
 
         stage('Deploy Backend') {
+            agent any
             steps {
                 script {
                     deployBackend("${BACKEND_DIR}")
@@ -113,6 +131,7 @@ pipeline {
         }
 
         stage('Deploy Frontend') {
+            agent any
             steps {
                 script {
                     deployFrontend("${FRONTEND_DIR}")
@@ -122,9 +141,8 @@ pipeline {
     }
 
     post {
-        always {
-            cleanWs()
-        }
+        always { cleanWs() }
+
         success {
             mail to: "${env.NOTIFY_EMAIL}",
                  subject: '✅ Jenkins Build & Deploy Successful',
@@ -133,6 +151,7 @@ pipeline {
 Backend + Frontend built and deployed.
 Check Jenkins console for details: ${env.BUILD_URL}"""
         }
+
         failure {
             mail to: "${env.NOTIFY_EMAIL}",
                  subject: '❌ Jenkins Build/Deploy Failed',
