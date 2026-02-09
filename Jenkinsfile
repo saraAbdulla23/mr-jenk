@@ -19,9 +19,6 @@ pipeline {
         NPM_CACHE = "${WORKSPACE}/.npm"
         CI = "true"
 
-        // Dynamic Chrome binary path for Linux nodes
-        CHROME_BIN = "" // will be set in a stage below
-
         NOTIFY_EMAIL = "sarakhalaf2312@gmail.com"
     }
 
@@ -53,13 +50,43 @@ pipeline {
         stage('Set Chrome Binary') {
             steps {
                 script {
-                    // Detect Chrome or Chromium binary dynamically on Linux
-                    def chromePath = sh(script: "which google-chrome || which chromium-browser || true", returnStdout: true).trim()
+                    // Detect Chrome or Chromium
+                    def chromePath = sh(script: 'which google-chrome || which chromium-browser || true', returnStdout: true).trim()
+
                     if (!chromePath) {
-                        error "❌ Chrome or Chromium not found on this node. Install one to run frontend tests."
+                        echo "⚠ Chrome/Chromium not found, installing..."
+
+                        if (isUnix()) {
+                            // Linux installation
+                            sh '''
+                            if command -v apt-get > /dev/null; then
+                                sudo apt-get update && sudo apt-get install -y chromium-browser
+                            elif command -v yum > /dev/null; then
+                                sudo yum install -y chromium
+                            else
+                                echo "Manual install required for Chrome/Chromium on this OS."
+                            fi
+                            '''
+                            chromePath = sh(script: 'which chromium-browser || which google-chrome', returnStdout: true).trim()
+                        } else {
+                            // macOS installation
+                            sh '''
+                            if command -v brew > /dev/null; then
+                                brew install --cask google-chrome || true
+                            else
+                                echo "Homebrew not found — please install Chrome manually."
+                            fi
+                            '''
+                            chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+                        }
                     }
+
+                    if (!chromePath || !fileExists(chromePath)) {
+                        error "❌ Chrome or Chromium installation failed. Cannot run frontend tests."
+                    }
+
                     env.CHROME_BIN = chromePath
-                    echo "✅ Using Chrome binary: ${env.CHROME_BIN}"
+                    echo "✅ Chrome binary set to: ${env.CHROME_BIN}"
                 }
             }
         }
@@ -86,8 +113,6 @@ pipeline {
                     sh 'node -v'
                     sh 'npm -v'
                     sh 'npm install --prefer-offline --no-audit --progress=false'
-
-                    // Run Karma tests using the detected Chrome binary
                     sh 'npm run test -- --watch=false --browsers=ChromeHeadless'
                 }
             }
@@ -230,12 +255,14 @@ def deployFrontend(String dirPath) {
         sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR}"
         sh "mkdir -p ${env.BACKUP_DIR}/frontend"
 
+        // Backup current frontend
         sh """
             cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
             rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
             cp -r ${distDir}/* ${env.FRONTEND_DEPLOY_DIR}/
         """
 
+        // Restart web server if systemctl exists
         sh """
             if command -v systemctl > /dev/null; then
                 systemctl restart nginx || echo 'Nginx restart failed, check manually.'
