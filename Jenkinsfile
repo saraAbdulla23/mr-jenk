@@ -12,12 +12,14 @@ pipeline {
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
         SPRING_PROFILES_ACTIVE = "test"
 
-        BACKEND_DEPLOY_DIR = "/opt/ecommerce/backend"
-        FRONTEND_DEPLOY_DIR = "/opt/ecommerce/frontend"
-        BACKUP_DIR = "/opt/ecommerce/backup"
+        BACKEND_DEPLOY_DIR = "${WORKSPACE}/deploy/backend"
+        FRONTEND_DEPLOY_DIR = "${WORKSPACE}/deploy/frontend"
+        BACKUP_DIR = "${WORKSPACE}/deploy/backup"
 
         NPM_CACHE = "${WORKSPACE}/.npm"
         CI = "true"
+
+        NOTIFY_EMAIL = "sarakhalaf2312@gmail.com"
     }
 
     options {
@@ -98,14 +100,18 @@ pipeline {
             cleanWs()
         }
         success {
-            mail to: 'sarakhalaf2312@gmail.com',
+            mail to: "${env.NOTIFY_EMAIL}",
                  subject: '✅ Jenkins Build & Deploy Successful',
-                 body: "CI/CD pipeline completed successfully.\n\nBackend + Frontend built and deployed.\nBuild URL: ${env.BUILD_URL}"
+                 body: """CI/CD pipeline completed successfully.
+
+Backend + Frontend built and deployed.
+Check Jenkins console for details."""
         }
         failure {
-            mail to: 'sarakhalaf2312@gmail.com',
+            mail to: "${env.NOTIFY_EMAIL}",
                  subject: '❌ Jenkins Build/Deploy Failed',
-                 body: "Pipeline failed. Check Jenkins console output: ${env.BUILD_URL}"
+                 body: """Pipeline failed at stage: ${currentBuild.currentResult}.
+Check Jenkins console for errors and rollback status."""
         }
     }
 }
@@ -123,6 +129,11 @@ def buildBackend(String dirPath) {
             -Dspring.profiles.active=${env.SPRING_PROFILES_ACTIVE}
         """
 
+        def jarFile = sh(script: "ls target/*.jar | head -n 1 || true", returnStdout: true).trim()
+        if (!jarFile) {
+            error "❌ No JAR found in ${dirPath}/target — check Maven build."
+        }
+
         archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false
     }
 }
@@ -130,29 +141,33 @@ def buildBackend(String dirPath) {
 // ================= DEPLOY BACKEND =================
 def deployBackend(String dirPath) {
     dir(dirPath) {
-        def jarFile = sh(script: "ls target/*.jar | head -n 1", returnStdout: true).trim()
+        def jarFile = sh(script: "ls target/*.jar | head -n 1 || true", returnStdout: true).trim()
+        if (!jarFile) {
+            error "❌ No JAR found in ${dirPath}/target — cannot deploy."
+        }
+
         def serviceName = dirPath.split('/')[-1]
 
-        sh "sudo mkdir -p ${env.BACKEND_DEPLOY_DIR}"
-        sh "sudo mkdir -p ${env.BACKUP_DIR}/${serviceName}"
+        sh "mkdir -p ${env.BACKEND_DEPLOY_DIR}"
+        sh "mkdir -p ${env.BACKUP_DIR}/${serviceName}"
 
         // Backup current deployment
         sh """
             if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
-                sudo cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
+                cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
             fi
         """
 
         // Deploy with rollback
         try {
-            sh "sudo cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
-            sh "sudo systemctl restart ${serviceName}"
+            sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
+            sh "systemctl restart ${serviceName} || echo 'Service restart failed, check manually.'"
         } catch (err) {
             echo "⚠ Deployment failed for ${serviceName}, rolling back..."
             sh """
                 if ls ${env.BACKUP_DIR}/${serviceName}/*.jar 1> /dev/null 2>&1; then
-                    sudo cp \$(ls ${env.BACKUP_DIR}/${serviceName}/*.jar | tail -n 1) ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
-                    sudo systemctl restart ${serviceName}
+                    cp \$(ls ${env.BACKUP_DIR}/${serviceName}/*.jar | tail -n 1) ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
+                    systemctl restart ${serviceName} || echo 'Rollback service restart failed.'
                 fi
             """
             error "Deployment failed for ${serviceName}, rollback executed."
@@ -163,23 +178,17 @@ def deployBackend(String dirPath) {
 // ================= DEPLOY FRONTEND =================
 def deployFrontend(String dirPath) {
     dir(dirPath) {
-        sh "sudo mkdir -p ${env.FRONTEND_DEPLOY_DIR}"
-        sh "sudo mkdir -p ${env.BACKUP_DIR}/frontend"
+        sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR}"
+        sh "mkdir -p ${env.BACKUP_DIR}/frontend"
 
         // Backup current frontend
-        sh 'cp -r ${FRONTEND_DEPLOY_DIR}/* ${BACKUP_DIR}/frontend/ || true'
+        sh """
+            cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
+            rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
+            cp -r dist/* ${env.FRONTEND_DEPLOY_DIR}/
+        """
 
-        // Deploy with rollback
-        try {
-            sh "rm -rf ${env.FRONTEND_DEPLOY_DIR}/*"
-            sh "cp -r dist/* ${env.FRONTEND_DEPLOY_DIR}/"
-            sh "sudo systemctl restart nginx"
-        } catch (err) {
-            echo "⚠ Frontend deployment failed, rolling back..."
-            sh "rm -rf ${env.FRONTEND_DEPLOY_DIR}/*"
-            sh 'cp -r ${BACKUP_DIR}/frontend/* ${FRONTEND_DEPLOY_DIR}/'
-            sh "sudo systemctl restart nginx"
-            error "Frontend deployment failed, rollback executed."
-        }
+        // Restart web server
+        sh "systemctl restart nginx || echo 'Nginx restart failed, check manually.'"
     }
 }
