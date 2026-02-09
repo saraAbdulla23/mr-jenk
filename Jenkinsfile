@@ -50,7 +50,6 @@ pipeline {
         stage('Set Chrome/Chromium Binary') {
             steps {
                 script {
-                    // Detect Chrome or Chromium
                     def chromePath = sh(script: 'which google-chrome || which chromium-browser || true', returnStdout: true).trim()
 
                     if (!chromePath) {
@@ -62,10 +61,9 @@ pipeline {
                         def platform = (arch == "aarch64") ? "Linux_ARM64" : "Linux_x64"
                         echo "Detected architecture: ${arch} → Using Chromium platform: ${platform}"
 
-                        // Get latest snapshot version
-                        def snapshot = sh(script: "curl -s https://omahaproxy.appspot.com/linux | head -n1 | grep -Eo '[0-9]+'", returnStdout: true).trim()
-                        if (!snapshot) { snapshot = '1204567' } // fallback
-                        echo "Chromium snapshot version: ${snapshot}"
+                        // Use a known working snapshot version per platform
+                        def snapshot = (arch == "aarch64") ? "1551367" : "1204567"
+                        echo "Using Chromium snapshot version: ${snapshot}"
 
                         // Download and unzip Chromium
                         sh """
@@ -112,7 +110,7 @@ pipeline {
                     sh 'node -v'
                     sh 'npm -v'
                     sh 'npm install --prefer-offline --no-audit --progress=false'
-                    // ChromeHeadless with --no-sandbox and --disable-gpu for safety
+                    // Run tests headless safely
                     sh 'npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox'
                 }
             }
@@ -128,15 +126,11 @@ pipeline {
         }
 
         stage('Deploy Backend') {
-            steps {
-                script { deployBackend("${BACKEND_DIR}") }
-            }
+            steps { script { deployBackend("${BACKEND_DIR}") } }
         }
 
         stage('Deploy Frontend') {
-            steps {
-                script { deployFrontend("${FRONTEND_DIR}") }
-            }
+            steps { script { deployFrontend("${FRONTEND_DIR}") } }
         }
     }
 
@@ -202,12 +196,14 @@ def deployBackend(String dirPath) {
             sh "mkdir -p ${env.BACKEND_DEPLOY_DIR}"
             sh "mkdir -p ${env.BACKUP_DIR}/${serviceName}"
 
+            // Backup current deployment
             sh """
                 if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
                     cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
                 fi
             """
 
+            // Deploy with rollback
             try {
                 sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
                 sh """
@@ -247,12 +243,14 @@ def deployFrontend(String dirPath) {
         sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR}"
         sh "mkdir -p ${env.BACKUP_DIR}/frontend"
 
+        // Backup current frontend
         sh """
             cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
             rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
             cp -r ${distDir}/* ${env.FRONTEND_DEPLOY_DIR}/
         """
 
+        // Restart web server if systemctl exists
         sh """
             if command -v systemctl > /dev/null; then
                 systemctl restart nginx || echo 'Nginx restart failed, check manually.'
