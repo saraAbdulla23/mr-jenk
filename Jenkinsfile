@@ -11,7 +11,8 @@ pipeline {
         FRONTEND_DIR = "front"
 
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
-        SPRING_PROFILES_ACTIVE = credentials('SPRING_PROFILES_ACTIVE') // Secure credential in Jenkins
+        // Use Jenkins secret credential for profile
+        SPRING_PROFILES_ACTIVE = "${credentials('SPRING_PROFILES_ACTIVE')}"
 
         BACKEND_DEPLOY_DIR  = "${WORKSPACE}/deploy/backend"
         FRONTEND_DEPLOY_DIR = "${WORKSPACE}/deploy/frontend"
@@ -70,11 +71,10 @@ pipeline {
 
                         def arch = sh(script: "uname -m", returnStdout: true).trim()
                         if (arch.contains('arm') || arch.contains('aarch64')) {
-                            echo "ARM architecture detected. Skipping frontend tests on this agent."
-                        } else {
-                            sh 'npx ng test --watch=false --browsers=ChromeHeadless --code-coverage'
-                            junit 'coverage/test-results/**/*.xml' // Archive frontend test results
+                            error("ARM architecture (${arch}) detected. Frontend tests cannot run reliably on this agent.")
                         }
+
+                        sh 'npx ng test --watch=false --browsers=ChromeHeadless'
                     }
                 }
             }
@@ -111,35 +111,37 @@ pipeline {
 
     post {
         success {
-            mail(
-                to: env.NOTIFY_EMAIL,
-                subject: '✅ CI/CD Pipeline SUCCESS',
-                body: """Build, tests, and deployment completed successfully.
+            script {
+                mail(
+                    to: env.NOTIFY_EMAIL,
+                    subject: '✅ CI/CD Pipeline SUCCESS',
+                    body: """Build, tests, and deployment completed successfully.
 
 Jenkins URL:
 ${env.BUILD_URL}
 """
-            )
-            // Optional Slack notification
-            // slackSend(channel: '#devops', message: "✅ Build SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}")
+                )
+            }
         }
 
         failure {
-            mail(
-                to: env.NOTIFY_EMAIL,
-                subject: '❌ CI/CD Pipeline FAILED',
-                body: """Pipeline failed at stage: ${env.STAGE_NAME}
+            script {
+                mail(
+                    to: env.NOTIFY_EMAIL,
+                    subject: '❌ CI/CD Pipeline FAILED',
+                    body: """Pipeline failed at stage: ${env.STAGE_NAME}
 
 Check Jenkins logs:
 ${env.BUILD_URL}
 """
-            )
-            // Optional Slack notification
-            // slackSend(channel: '#devops', message: "❌ Build FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}")
+                )
+            }
         }
 
         always {
-            cleanWs()
+            script {
+                cleanWs()
+            }
         }
     }
 }
@@ -157,7 +159,6 @@ def buildAndTestBackend(String dirPath) {
             -Dspring.profiles.active=${env.SPRING_PROFILES_ACTIVE}
         """
 
-        junit '**/target/surefire-reports/*.xml' // Archive backend test results
         archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false
     }
 }
@@ -211,19 +212,10 @@ def deployFrontend(String dirPath) {
 
         sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR} ${env.BACKUP_DIR}/frontend"
 
-        try {
-            sh """
-                cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
-                rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
-                cp -r ${distDir}/* ${env.FRONTEND_DEPLOY_DIR}/
-            """
-        } catch (e) {
-            echo "Frontend deployment failed. Rolling back..."
-            sh """
-                rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
-                cp -r ${env.BACKUP_DIR}/frontend/* ${env.FRONTEND_DEPLOY_DIR}/
-            """
-            error("Frontend deployment failed. Rollback executed.")
-        }
+        sh """
+            cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
+            rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
+            cp -r ${distDir}/* ${env.FRONTEND_DEPLOY_DIR}/
+        """
     }
 }
