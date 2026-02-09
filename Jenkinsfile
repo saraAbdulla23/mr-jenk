@@ -55,28 +55,33 @@ pipeline {
 
                     if (!chromePath) {
                         echo "⚠ Chrome/Chromium not found. Installing local Chromium..."
-
-                        // Prepare directory
                         sh "mkdir -p ${WORKSPACE}/chromium"
 
-                        // Download latest stable Chromium (headless)
-                        sh '''
-                            CHROMIUM_URL=$(curl -s https://omahaproxy.appspot.com/linux | head -n1 | grep -v 404)
-                            if [ -z "$CHROMIUM_URL" ]; then
-                                CHROMIUM_URL="https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/1204567/chrome-linux.zip"
-                            fi
-                            echo "Downloading Chromium from $CHROMIUM_URL..."
-                            curl -L -o ${WORKSPACE}/chromium/chrome.zip $CHROMIUM_URL
-                            unzip -q ${WORKSPACE}/chromium/chrome.zip -d ${WORKSPACE}/chromium
+                        // Detect architecture (x86_64 or aarch64)
+                        def arch = sh(script: "uname -m", returnStdout: true).trim()
+                        def platform = (arch == "aarch64") ? "Linux_ARM64" : "Linux_x64"
+                        echo "Detected architecture: ${arch} → Using Chromium platform: ${platform}"
+
+                        // Get latest snapshot version
+                        def snapshot = sh(script: "curl -s https://omahaproxy.appspot.com/linux | head -n1 | grep -Eo '[0-9]+'", returnStdout: true).trim()
+                        if (!snapshot) { snapshot = '1204567' } // fallback
+                        echo "Chromium snapshot version: ${snapshot}"
+
+                        // Download and unzip Chromium
+                        sh """
+                            CHROME_ZIP=${WORKSPACE}/chromium/chrome.zip
+                            echo "Downloading Chromium snapshot ${snapshot} for ${platform}..."
+                            curl -L -o \$CHROME_ZIP https://commondatastorage.googleapis.com/chromium-browser-snapshots/${platform}/${snapshot}/chrome-linux.zip
+                            unzip -q \$CHROME_ZIP -d ${WORKSPACE}/chromium
                             mv ${WORKSPACE}/chromium/chrome-linux/chrome ${WORKSPACE}/chromium/chrome
                             chmod +x ${WORKSPACE}/chromium/chrome
-                        '''
+                        """
 
                         chromePath = "${WORKSPACE}/chromium/chrome"
                     }
 
                     if (!chromePath || !fileExists(chromePath)) {
-                        error "❌ Chrome or Chromium installation failed. Cannot run frontend tests."
+                        error "❌ Chrome/Chromium installation failed. Cannot run frontend tests."
                     }
 
                     env.CHROME_BIN = chromePath
@@ -107,7 +112,8 @@ pipeline {
                     sh 'node -v'
                     sh 'npm -v'
                     sh 'npm install --prefer-offline --no-audit --progress=false'
-                    sh 'npm run test -- --watch=false --browsers=ChromeHeadless'
+                    // ChromeHeadless with --no-sandbox and --disable-gpu for safety
+                    sh 'npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox'
                 }
             }
         }
@@ -123,25 +129,19 @@ pipeline {
 
         stage('Deploy Backend') {
             steps {
-                script {
-                    deployBackend("${BACKEND_DIR}")
-                }
+                script { deployBackend("${BACKEND_DIR}") }
             }
         }
 
         stage('Deploy Frontend') {
             steps {
-                script {
-                    deployFrontend("${FRONTEND_DIR}")
-                }
+                script { deployFrontend("${FRONTEND_DIR}") }
             }
         }
     }
 
     post {
-        always {
-            cleanWs()
-        }
+        always { cleanWs() }
         success {
             mail to: "${env.NOTIFY_EMAIL}",
                  subject: '✅ Jenkins Build & Deploy Successful',
@@ -202,14 +202,12 @@ def deployBackend(String dirPath) {
             sh "mkdir -p ${env.BACKEND_DEPLOY_DIR}"
             sh "mkdir -p ${env.BACKUP_DIR}/${serviceName}"
 
-            // Backup current deployment
             sh """
                 if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
                     cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
                 fi
             """
 
-            // Deploy with rollback
             try {
                 sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
                 sh """
@@ -249,14 +247,12 @@ def deployFrontend(String dirPath) {
         sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR}"
         sh "mkdir -p ${env.BACKUP_DIR}/frontend"
 
-        // Backup current frontend
         sh """
             cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
             rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
             cp -r ${distDir}/* ${env.FRONTEND_DEPLOY_DIR}/
         """
 
-        // Restart web server if systemctl exists
         sh """
             if command -v systemctl > /dev/null; then
                 systemctl restart nginx || echo 'Nginx restart failed, check manually.'
