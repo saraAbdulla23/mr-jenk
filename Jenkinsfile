@@ -68,20 +68,27 @@ pipeline {
                     sh 'node -v'
                     sh 'npm -v'
 
-                    // Install frontend dependencies (will use cache)
+                    // Install frontend dependencies
                     sh 'npm install --prefer-offline --no-audit --progress=false'
 
-                    // Install puppeteer only if not already installed
+                    // Install Puppeteer ARM or default Chrome based on architecture
                     sh '''
+                        # Detect architecture
+                        ARCH=$(uname -m)
+                        if [[ "$ARCH" == "aarch64" ]]; then
+                            echo "ARM architecture detected, installing ARM Puppeteer Chrome"
+                            export PUPPETEER_ARCH=arm64
+                        fi
+
                         if [ ! -d "node_modules/puppeteer" ]; then
                             npm install puppeteer --save-dev --prefer-offline --no-audit --progress=false
                         fi
                     '''
 
-                    // Set CHROME_BIN to Puppeteer Chrome and run tests
+                    // Set CHROME_BIN to Puppeteer Chrome
                     sh '''
                         export CHROME_BIN=$(node -e "console.log(require('puppeteer').executablePath())")
-                        npx ng test --watch=false --browsers=ChromeHeadless
+                        npx ng test --watch=false --browsers=ChromeHeadless --no-sandbox
                     '''
                 }
             }
