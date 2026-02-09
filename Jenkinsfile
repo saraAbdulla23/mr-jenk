@@ -1,5 +1,5 @@
 pipeline {
-    agent none // We'll define agents per stage
+    agent any
 
     tools {
         maven 'maven-3'
@@ -12,9 +12,9 @@ pipeline {
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
         SPRING_PROFILES_ACTIVE = "test"
 
-        BACKEND_DEPLOY_DIR = "${WORKSPACE}/deploy/backend"
+        BACKEND_DEPLOY_DIR  = "${WORKSPACE}/deploy/backend"
         FRONTEND_DEPLOY_DIR = "${WORKSPACE}/deploy/frontend"
-        BACKUP_DIR = "${WORKSPACE}/deploy/backup"
+        BACKUP_DIR          = "${WORKSPACE}/deploy/backup"
 
         NPM_CACHE = "${WORKSPACE}/.npm"
         CI = "true"
@@ -36,7 +36,6 @@ pipeline {
     stages {
 
         stage('Checkout SCM') {
-            agent any // Use the Jenkins node for Git
             steps {
                 checkout([
                     $class: 'GitSCM',
@@ -48,19 +47,53 @@ pipeline {
             }
         }
 
-        stage('Set Chrome Binary') {
-            agent {
-                docker {
-                    image 'selenium/standalone-chrome:latest'
-                    args '-u root:root'
-                }
-            }
+        stage('Set Chrome/Chromium Binary') {
             steps {
                 script {
+                    // Check if Chrome or Chromium is already available
                     def chromePath = sh(script: 'which google-chrome || which chromium-browser || true', returnStdout: true).trim()
+
                     if (!chromePath) {
-                        error "❌ Chrome or Chromium not found in the Docker image!"
+                        echo "⚠ Chrome/Chromium not found. Installing local Chromium..."
+
+                        // Create local bin folder in workspace
+                        sh '''
+                            mkdir -p ${WORKSPACE}/chromium
+                            export CHROME_BIN=${WORKSPACE}/chromium/chrome
+                        '''
+
+                        // Download portable Chromium for Linux
+                        if (isUnix()) {
+                            sh '''
+                                if [ ! -f ${WORKSPACE}/chromium/chrome ]; then
+                                    echo "Downloading Chromium..."
+                                    CHROMIUM_URL=$(curl -s https://omahaproxy.appspot.com/linux | grep -v '404' | head -n1)
+                                    # fallback to known stable URL
+                                    CHROMIUM_URL="https://commondatastorage.googleapis.com/chromium-browser-snapshots/Linux_x64/1204567/chrome-linux.zip"
+                                    wget -q -O ${WORKSPACE}/chromium/chrome.zip $CHROMIUM_URL
+                                    unzip -q ${WORKSPACE}/chromium/chrome.zip -d ${WORKSPACE}/chromium
+                                    mv ${WORKSPACE}/chromium/chrome-linux/chrome ${WORKSPACE}/chromium/chrome
+                                    chmod +x ${WORKSPACE}/chromium/chrome
+                                fi
+                            '''
+                            chromePath = "${WORKSPACE}/chromium/chrome"
+                        } else {
+                            // macOS fallback
+                            sh '''
+                                if command -v brew > /dev/null; then
+                                    brew install --cask google-chrome || true
+                                else
+                                    echo "Homebrew not found — install Chrome manually."
+                                fi
+                            '''
+                            chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+                        }
                     }
+
+                    if (!chromePath || !fileExists(chromePath)) {
+                        error "❌ Chrome/Chromium installation failed. Cannot run frontend tests."
+                    }
+
                     env.CHROME_BIN = chromePath
                     echo "✅ Chrome binary set to: ${env.CHROME_BIN}"
                 }
@@ -68,12 +101,6 @@ pipeline {
         }
 
         stage('Backend - Build & Test') {
-            agent {
-                docker {
-                    image 'maven:3.9.3-openjdk-17' // Maven + JDK
-                    args '-u root:root'
-                }
-            }
             steps {
                 script {
                     parallel(
@@ -88,12 +115,6 @@ pipeline {
         }
 
         stage('Frontend - Install & Test') {
-            agent {
-                docker {
-                    image 'node:20'
-                    args '-u root:root'
-                }
-            }
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh 'mkdir -p ${NPM_CACHE}'
@@ -107,12 +128,6 @@ pipeline {
         }
 
         stage('Frontend - Build') {
-            agent {
-                docker {
-                    image 'node:20'
-                    args '-u root:root'
-                }
-            }
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh 'npx ng build --configuration production'
@@ -122,7 +137,6 @@ pipeline {
         }
 
         stage('Deploy Backend') {
-            agent any
             steps {
                 script {
                     deployBackend("${BACKEND_DIR}")
@@ -131,7 +145,6 @@ pipeline {
         }
 
         stage('Deploy Frontend') {
-            agent any
             steps {
                 script {
                     deployFrontend("${FRONTEND_DIR}")
@@ -141,8 +154,9 @@ pipeline {
     }
 
     post {
-        always { cleanWs() }
-
+        always {
+            cleanWs()
+        }
         success {
             mail to: "${env.NOTIFY_EMAIL}",
                  subject: '✅ Jenkins Build & Deploy Successful',
@@ -151,7 +165,6 @@ pipeline {
 Backend + Frontend built and deployed.
 Check Jenkins console for details: ${env.BUILD_URL}"""
         }
-
         failure {
             mail to: "${env.NOTIFY_EMAIL}",
                  subject: '❌ Jenkins Build/Deploy Failed',
