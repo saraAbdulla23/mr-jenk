@@ -81,10 +81,12 @@ pipeline {
                     '''
 
                     sh '''
-                        CHROME_PATH=$(node -e "console.log(require('puppeteer').executablePath())")
-                        export CHROME_BIN="$CHROME_PATH --no-sandbox --disable-dev-shm-usage"
+                        export CHROME_BIN=$(node -e "console.log(require('puppeteer').executablePath())")
 
-                        npx ng test --watch=false --browsers=ChromeHeadless
+                        npx ng test \
+                          --watch=false \
+                          --browsers=ChromeHeadless \
+                          --no-progress
                     '''
                 }
             }
