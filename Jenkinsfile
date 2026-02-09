@@ -70,7 +70,6 @@ pipeline {
         stage('Frontend - Build') {
             steps {
                 dir("${FRONTEND_DIR}") {
-                    // ✅ Angular 17 SSR-safe build
                     sh 'npx ng build --configuration production'
                     archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
                 }
@@ -106,7 +105,7 @@ pipeline {
         failure {
             mail to: 'sarakhalaf2312@gmail.com',
                  subject: '❌ Jenkins Build/Deploy Failed',
-                 body: "Pipeline failed in stage: ${env.STAGE_NAME}\nCheck Jenkins console output: ${env.BUILD_URL}"
+                 body: "Pipeline failed. Check Jenkins console output: ${env.BUILD_URL}"
         }
     }
 }
@@ -134,7 +133,6 @@ def deployBackend(String dirPath) {
         def jarFile = sh(script: "ls target/*.jar | head -n 1", returnStdout: true).trim()
         def serviceName = dirPath.split('/')[-1]
 
-        // Ensure directories exist
         sh "sudo mkdir -p ${env.BACKEND_DEPLOY_DIR}"
         sh "sudo mkdir -p ${env.BACKUP_DIR}/${serviceName}"
 
@@ -145,14 +143,14 @@ def deployBackend(String dirPath) {
             fi
         """
 
-        // Deploy new jar with rollback on failure
+        // Deploy with rollback
         try {
             sh "sudo cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
             sh "sudo systemctl restart ${serviceName}"
         } catch (err) {
             echo "⚠ Deployment failed for ${serviceName}, rolling back..."
             sh """
-                if [ -f ${env.BACKUP_DIR}/${serviceName}/*.jar ]; then
+                if ls ${env.BACKUP_DIR}/${serviceName}/*.jar 1> /dev/null 2>&1; then
                     sudo cp \$(ls ${env.BACKUP_DIR}/${serviceName}/*.jar | tail -n 1) ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
                     sudo systemctl restart ${serviceName}
                 fi
@@ -165,27 +163,22 @@ def deployBackend(String dirPath) {
 // ================= DEPLOY FRONTEND =================
 def deployFrontend(String dirPath) {
     dir(dirPath) {
-        // Ensure directories exist
         sh "sudo mkdir -p ${env.FRONTEND_DEPLOY_DIR}"
         sh "sudo mkdir -p ${env.BACKUP_DIR}/frontend"
 
         // Backup current frontend
-        sh """
-            cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
-        """
+        sh 'cp -r ${FRONTEND_DEPLOY_DIR}/* ${BACKUP_DIR}/frontend/ || true'
 
-        // Deploy new frontend with rollback
+        // Deploy with rollback
         try {
-            rm -rf "${env.FRONTEND_DEPLOY_DIR}/*"
-            cp -r dist/* "${env.FRONTEND_DEPLOY_DIR}/"
-            sudo systemctl restart nginx
+            sh "rm -rf ${env.FRONTEND_DEPLOY_DIR}/*"
+            sh "cp -r dist/* ${env.FRONTEND_DEPLOY_DIR}/"
+            sh "sudo systemctl restart nginx"
         } catch (err) {
             echo "⚠ Frontend deployment failed, rolling back..."
-            sh """
-                rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
-                cp -r ${env.BACKUP_DIR}/frontend/* ${env.FRONTEND_DEPLOY_DIR}/
-                sudo systemctl restart nginx
-            """
+            sh "rm -rf ${env.FRONTEND_DEPLOY_DIR}/*"
+            sh 'cp -r ${BACKUP_DIR}/frontend/* ${FRONTEND_DEPLOY_DIR}/'
+            sh "sudo systemctl restart nginx"
             error "Frontend deployment failed, rollback executed."
         }
     }
