@@ -9,19 +9,17 @@ pipeline {
     environment {
         BACKEND_DIR    = "backend"
         FRONTEND_DIR   = "front"
-
-        // Persistent caches stored outside workspace
-        MVN_LOCAL_REPO   = "/var/jenkins_home/caches/maven"
-        NPM_CACHE        = "/var/jenkins_home/caches/npm"
-        PUPPETEER_CACHE  = "/var/jenkins_home/caches/puppeteer"
-
+        MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
         SPRING_PROFILES_ACTIVE = "test"
 
-        BACKEND_DEPLOY_DIR  = "${WORKSPACE}/deploy/backend"
+        BACKEND_DEPLOY_DIR = "${WORKSPACE}/deploy/backend"
         FRONTEND_DEPLOY_DIR = "${WORKSPACE}/deploy/frontend"
-        BACKUP_DIR          = "${WORKSPACE}/deploy/backup"
+        BACKUP_DIR = "${WORKSPACE}/deploy/backup"
 
+        NPM_CACHE = "${WORKSPACE}/.npm"
+        PUPPETEER_CACHE = "${WORKSPACE}/.cache/puppeteer"
         CI = "true"
+
         NOTIFY_EMAIL = "sarakhalaf2312@gmail.com"
     }
 
@@ -53,29 +51,30 @@ pipeline {
         stage('Detect Changes') {
             steps {
                 script {
-                    env.CHANGED_BACKEND_SERVICES = ""
-                    env.FRONTEND_CHANGED = "false"
-
                     // Detect changed backend services
-                    def backendDirs = findFiles(glob: "${BACKEND_DIR}/*").collect { it.path }
-                    backendDirs.each { dirPath ->
-                        def changes = sh(
-                            script: "git diff --name-only HEAD~1 HEAD ${dirPath}",
-                            returnStdout: true
-                        ).trim()
-                        if (changes) {
-                            env.CHANGED_BACKEND_SERVICES += "${dirPath.split('/')[-1]},"
-                        }
-                    }
+                    def backendServices = sh(
+                        script: "git diff --name-only HEAD~1 HEAD backend/*",
+                        returnStdout: true
+                    ).trim().split('\n').collect { it.tokenize('/')[1] }.unique()
 
                     // Detect frontend changes
-                    def frontendChanges = sh(
-                        script: "git diff --name-only HEAD~1 HEAD ${FRONTEND_DIR}",
+                    def frontendChanged = sh(
+                        script: "git diff --name-only HEAD~1 HEAD front",
                         returnStdout: true
                     ).trim()
-                    if (frontendChanges) env.FRONTEND_CHANGED = "true"
 
-                    echo "Changed backend services: ${env.CHANGED_BACKEND_SERVICES}"
+                    // First run detection: if HEAD~1 doesn't exist
+                    def firstRun = sh(script: "git rev-parse HEAD~1", returnStatus: true) != 0
+                    if (firstRun) {
+                        echo "⚡ First run detected — building all backend services and frontend"
+                        backendServices = ['discovery-service', 'api-gateway', 'user-service', 'product-service', 'media-service']
+                        frontendChanged = true
+                    }
+
+                    env.BACKEND_SERVICES = backendServices.join(',')
+                    env.FRONTEND_CHANGED = frontendChanged ? "true" : "false"
+
+                    echo "Changed backend services: ${env.BACKEND_SERVICES}"
                     echo "Frontend changed: ${env.FRONTEND_CHANGED}"
                 }
             }
@@ -110,19 +109,17 @@ pipeline {
         }
 
         stage('Backend - Build & Test') {
-            when { expression { env.CHANGED_BACKEND_SERVICES } }
+            when { expression { env.BACKEND_SERVICES } }
             steps {
                 script {
-                    def services = env.CHANGED_BACKEND_SERVICES.tokenize(',')
-                    def parallelStages = [:]
+                    def services = env.BACKEND_SERVICES.tokenize(',')
+                    def parallelBuilds = [:]
 
-                    services.each { service ->
-                        if (!service) return
-                        def serviceDir = "${BACKEND_DIR}/${service}"
-                        parallelStages[service] = { buildAndTestBackend(serviceDir) }
+                    services.each { svc ->
+                        parallelBuilds[svc] = { buildAndTestBackend("${BACKEND_DIR}/${svc}") }
                     }
 
-                    parallel parallelStages
+                    parallel parallelBuilds
                 }
             }
         }
@@ -131,13 +128,11 @@ pipeline {
             when { expression { env.FRONTEND_CHANGED == "true" } }
             steps {
                 dir("${FRONTEND_DIR}") {
-                    sh "mkdir -p ${NPM_CACHE}"
-                    sh "npm config set cache ${NPM_CACHE} --global"
-
+                    sh 'mkdir -p ${NPM_CACHE}'
+                    sh 'npm config set cache ${NPM_CACHE} --global'
                     sh 'node -v'
                     sh 'npm -v'
-
-                    sh 'npm ci --prefer-offline --no-audit --progress=false'
+                    sh 'npm install --prefer-offline --no-audit --progress=false'
 
                     script {
                         def isMacARM = sh(script: "uname -m", returnStdout: true).trim() == "arm64"
@@ -163,13 +158,24 @@ pipeline {
         }
 
         stage('Deploy Backend') {
-            when { expression { env.CHANGED_BACKEND_SERVICES } }
+            when { expression { env.BACKEND_SERVICES } }
             steps { script { deployBackend("${BACKEND_DIR}") } }
         }
 
         stage('Deploy Frontend') {
             when { expression { env.FRONTEND_CHANGED == "true" } }
             steps { script { deployFrontend("${FRONTEND_DIR}") } }
+        }
+
+        stage('Build Summary') {
+            steps {
+                script {
+                    echo "================ CI/CD BUILD SUMMARY ================"
+                    echo "Backend services built: ${env.BACKEND_SERVICES ?: 'None'}"
+                    echo "Frontend built: ${env.FRONTEND_CHANGED == 'true' ? 'Yes' : 'No'}"
+                    echo "====================================================="
+                }
+            }
         }
     }
 
@@ -180,7 +186,9 @@ pipeline {
                  subject: '✅ Jenkins Build & Deploy Successful',
                  body: """CI/CD pipeline completed successfully.
 
-Backend + Frontend built and deployed.
+Backend services built: ${env.BACKEND_SERVICES ?: 'None'}
+Frontend built: ${env.FRONTEND_CHANGED == 'true' ? 'Yes' : 'No'}
+
 Check Jenkins console: ${env.BUILD_URL}"""
         }
         failure {
@@ -197,7 +205,7 @@ def buildAndTestBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
         sh 'mvn -version'
-        sh "mkdir -p ${MVN_LOCAL_REPO}"
+        sh 'mkdir -p ${MVN_LOCAL_REPO}'
 
         sh """
             mvn clean test package -B \
