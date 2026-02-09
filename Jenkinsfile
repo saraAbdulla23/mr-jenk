@@ -12,12 +12,10 @@ pipeline {
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
         SPRING_PROFILES_ACTIVE = "test"
 
-        // Deployment paths
         BACKEND_DEPLOY_DIR = "/opt/ecommerce/backend"
         FRONTEND_DEPLOY_DIR = "/opt/ecommerce/frontend"
         BACKUP_DIR = "/opt/ecommerce/backup"
 
-        // NPM cache location
         NPM_CACHE = "${WORKSPACE}/.npm"
     }
 
@@ -59,24 +57,21 @@ pipeline {
         stage('Frontend - Install & Test') {
             steps {
                 dir("${FRONTEND_DIR}") {
-                    // Ensure npm cache directory exists
-                    sh 'mkdir -p ${NPM_CACHE}'
 
-                    // Use cached npm packages
+                    sh 'mkdir -p ${NPM_CACHE}'
                     sh 'npm config set cache ${NPM_CACHE} --global'
 
                     sh 'node -v'
                     sh 'npm -v'
 
-                    // Install frontend dependencies
                     sh 'npm install --prefer-offline --no-audit --progress=false'
 
-                    // Install Puppeteer ARM or default Chrome based on architecture
                     sh '''
-                        # Detect architecture
                         ARCH=$(uname -m)
-                        if [[ "$ARCH" == "aarch64" ]]; then
-                            echo "ARM architecture detected, installing ARM Puppeteer Chrome"
+                        echo "Detected architecture: $ARCH"
+
+                        if [ "$ARCH" = "aarch64" ]; then
+                            echo "ARM architecture detected"
                             export PUPPETEER_ARCH=arm64
                         fi
 
@@ -85,10 +80,11 @@ pipeline {
                         fi
                     '''
 
-                    // Set CHROME_BIN to Puppeteer Chrome
                     sh '''
-                        export CHROME_BIN=$(node -e "console.log(require('puppeteer').executablePath())")
-                        npx ng test --watch=false --browsers=ChromeHeadless --no-sandbox
+                        CHROME_PATH=$(node -e "console.log(require('puppeteer').executablePath())")
+                        export CHROME_BIN="$CHROME_PATH --no-sandbox --disable-dev-shm-usage"
+
+                        npx ng test --watch=false --browsers=ChromeHeadless
                     '''
                 }
             }
@@ -135,21 +131,15 @@ pipeline {
     }
 }
 
-// =================================================
-// Backend build function with Maven caching
-// =================================================
+// ================= BACKEND BUILD =================
 def buildBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
         sh 'mvn -version'
-
-        // Ensure Maven local repo exists
         sh 'mkdir -p ${MVN_LOCAL_REPO}'
 
-        // Build with embedded test profile, using cached Maven repo
         sh """
-            mvn clean package \
-            -B \
+            mvn clean package -B \
             -Dmaven.repo.local=${env.MVN_LOCAL_REPO} \
             -Dspring.profiles.active=${env.SPRING_PROFILES_ACTIVE}
         """
@@ -158,67 +148,32 @@ def buildBackend(String dirPath) {
     }
 }
 
-// =================================================
-// Deploy functions with rollback
-// =================================================
+// ================= DEPLOY BACKEND =================
 def deployBackend(String dirPath) {
     dir(dirPath) {
         def jarFile = sh(script: "ls target/*.jar | head -n 1", returnStdout: true).trim()
         def serviceName = dirPath.split('/')[-1]
 
-        echo "Deploying backend service: ${serviceName}"
-
-        // Backup old jar
         sh """
             mkdir -p ${env.BACKUP_DIR}/${serviceName}
             if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
                 cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
             fi
-        """
-
-        // Deploy new jar
-        sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
-
-        // Restart service with rollback
-        def latestBackup = sh(script: "ls -t ${env.BACKUP_DIR}/${serviceName} | head -n1", returnStdout: true).trim()
-        sh """
-            systemctl restart ${serviceName} || (
-                echo 'Deployment failed, rolling back...'
-                cp ${env.BACKUP_DIR}/${serviceName}/${latestBackup} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
-                systemctl restart ${serviceName}
-                exit 1
-            )
+            cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
+            systemctl restart ${serviceName}
         """
     }
 }
 
+// ================= DEPLOY FRONTEND =================
 def deployFrontend(String dirPath) {
     dir(dirPath) {
-        echo "Deploying frontend"
-
-        // Backup old frontend
         sh """
             mkdir -p ${env.BACKUP_DIR}/frontend
-            if [ -d ${env.FRONTEND_DEPLOY_DIR} ]; then
-                cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/
-            fi
-        """
-
-        // Copy new build
-        sh """
+            cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
             rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
             cp -r dist/* ${env.FRONTEND_DEPLOY_DIR}/
-        """
-
-        // Restart frontend server with rollback
-        sh """
-            systemctl restart nginx || (
-                echo 'Frontend deployment failed, rolling back...'
-                rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
-                cp -r ${env.BACKUP_DIR}/frontend/* ${env.FRONTEND_DEPLOY_DIR}/
-                systemctl restart nginx
-                exit 1
-            )
+            systemctl restart nginx
         """
     }
 }
