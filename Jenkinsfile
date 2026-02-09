@@ -52,29 +52,22 @@ pipeline {
             steps {
                 dir("${FRONTEND_DIR}") {
                     script {
-                        // Puppeteer cache
                         sh "mkdir -p ${PUPPETEER_CACHE}"
                         env.PUPPETEER_CACHE_DIR = "${PUPPETEER_CACHE}"
                         env.PUPPETEER_DOWNLOAD_HOST = "https://storage.googleapis.com/chromium-browser-snapshots"
 
-                        // Install Puppeteer normally (downloads Chromium automatically)
                         sh 'npm install puppeteer'
 
-                        // Determine Chrome binary
                         def chromePath = sh(
                             script: 'node -e "console.log(require(\'puppeteer\').executablePath())"',
                             returnStdout: true
                         ).trim()
 
-                        // Fallback to system Chrome/Chromium
                         if (!fileExists(chromePath)) {
                             chromePath = sh(script: 'which google-chrome || which chromium-browser || true', returnStdout: true).trim()
                         }
 
-                        if (!chromePath) {
-                            error "❌ Chrome/Chromium not found. Puppeteer requires ChromeHeadless for tests."
-                        }
-
+                        if (!chromePath) error "❌ Chrome/Chromium not found!"
                         env.CHROME_BIN = chromePath
                         echo "✅ Chrome binary set to: ${env.CHROME_BIN}"
                     }
@@ -106,13 +99,12 @@ pipeline {
                     sh 'npm install --prefer-offline --no-audit --progress=false'
 
                     script {
-                        // Detect macOS ARM (M1/M2) to prevent ChromeHeadless issues
                         def isMacARM = sh(script: "uname -m", returnStdout: true).trim() == "arm64"
                         if (isMacARM) {
-                            echo "⚠ Skipping ChromeHeadless tests on macOS ARM — using Puppeteer headless fallback"
-                            sh 'npx ng test --watch=false --browsers=ChromeHeadlessCustom || echo "⚠ Frontend tests skipped/fallback"'
+                            echo "⚠ Skipping ChromeHeadless tests on macOS ARM — using fallback"
+                            sh 'npx ng test --watch=false --browsers=ChromeHeadlessCustom || echo "⚠ Frontend tests skipped"'
                         } else {
-                            sh 'npx ng test --watch=false --browsers=ChromeHeadless || echo "⚠ Frontend tests failed (check logs)"'
+                            sh 'npx ng test --watch=false --browsers=ChromeHeadless || echo "⚠ Frontend tests failed"'
                         }
                     }
                 }
@@ -145,14 +137,13 @@ pipeline {
                  body: """CI/CD pipeline completed successfully.
 
 Backend + Frontend built and deployed.
-Check Jenkins console for details: ${env.BUILD_URL}"""
+Check Jenkins console: ${env.BUILD_URL}"""
         }
         failure {
             mail to: "${env.NOTIFY_EMAIL}",
                  subject: '❌ Jenkins Build/Deploy Failed',
                  body: """Pipeline failed at stage: ${env.STAGE_NAME ?: 'Unknown'}.
-
-Check Jenkins console for errors and rollback status: ${env.BUILD_URL}"""
+Check console for errors: ${env.BUILD_URL}"""
         }
     }
 }
@@ -172,7 +163,7 @@ def buildAndTestBackend(String dirPath) {
 
         def jarFile = sh(script: "ls target/*.jar | head -n 1 || true", returnStdout: true).trim()
         if (!jarFile) {
-            echo "⚠ No JAR found in ${dirPath}/target — skipping archive and deploy for this service."
+            echo "⚠ No JAR found in ${dirPath}/target — skipping archive/deploy."
             return
         }
 
@@ -195,9 +186,7 @@ def deployBackend(String dirPath) {
             }
 
             echo "Deploying backend service: ${serviceName}"
-
-            sh "mkdir -p ${env.BACKEND_DEPLOY_DIR}"
-            sh "mkdir -p ${env.BACKUP_DIR}/${serviceName}"
+            sh "mkdir -p ${env.BACKEND_DEPLOY_DIR} ${env.BACKUP_DIR}/${serviceName}"
 
             sh """
                 if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
@@ -209,7 +198,7 @@ def deployBackend(String dirPath) {
                 sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
                 sh """
                     if command -v systemctl > /dev/null; then
-                        systemctl restart ${serviceName} || echo 'Service restart failed, check manually.'
+                        systemctl restart ${serviceName} || echo 'Service restart failed.'
                     else
                         echo 'systemctl not available — restart manually.'
                     fi
@@ -220,7 +209,7 @@ def deployBackend(String dirPath) {
                     if ls ${env.BACKUP_DIR}/${serviceName}/*.jar 1> /dev/null 2>&1; then
                         cp \$(ls ${env.BACKUP_DIR}/${serviceName}/*.jar | tail -n 1) ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
                         if command -v systemctl > /dev/null; then
-                            systemctl restart ${serviceName} || echo 'Rollback service restart failed.'
+                            systemctl restart ${serviceName} || echo 'Rollback restart failed.'
                         fi
                     fi
                 """
@@ -235,14 +224,12 @@ def deployFrontend(String dirPath) {
     dir(dirPath) {
         def distDir = "${dirPath}/dist/front"
         if (!fileExists(distDir)) {
-            echo "⚠ Frontend build artifacts not found — skipping frontend deploy."
+            echo "⚠ Frontend build artifacts not found — skipping deploy."
             return
         }
 
         echo "Deploying frontend..."
-
-        sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR}"
-        sh "mkdir -p ${env.BACKUP_DIR}/frontend"
+        sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR} ${env.BACKUP_DIR}/frontend"
 
         sh """
             cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
@@ -252,7 +239,7 @@ def deployFrontend(String dirPath) {
 
         sh """
             if command -v systemctl > /dev/null; then
-                systemctl restart nginx || echo 'Nginx restart failed, check manually.'
+                systemctl restart nginx || echo 'Nginx restart failed.'
             else
                 echo 'systemctl not available — restart nginx manually.'
             fi
