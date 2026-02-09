@@ -61,20 +61,16 @@ pipeline {
             }
         }
 
-        // ================= FRONTEND TEST =================
+        // ================= FRONTEND TEST (ARM SAFE) =================
         stage('Frontend - Test') {
             steps {
                 dir("${FRONTEND_DIR}") {
-                    script {
-                        sh 'npm install'
-
-                        def arch = sh(script: "uname -m", returnStdout: true).trim()
-                        if (arch.contains('arm') || arch.contains('aarch64')) {
-                            error("ARM architecture (${arch}) detected. Frontend tests cannot run reliably on this agent.")
-                        }
-
-                        sh 'npx ng test --watch=false --browsers=ChromeHeadless'
-                    }
+                    sh '''
+                        npm install
+                        npm install puppeteer --no-save
+                        export CHROME_BIN=$(node -e "console.log(require('puppeteer').executablePath())")
+                        npx ng test --watch=false --browsers=ChromeHeadless
+                    '''
                 }
             }
         }
@@ -109,6 +105,12 @@ pipeline {
     }
 
     post {
+        always {
+            // publish backend test reports
+            junit '**/target/surefire-reports/*.xml'
+            cleanWs()
+        }
+
         success {
             mail(
                 to: env.NOTIFY_EMAIL,
@@ -131,10 +133,6 @@ Check Jenkins logs:
 ${env.BUILD_URL}
 """
             )
-        }
-
-        always {
-            cleanWs()
         }
     }
 }
