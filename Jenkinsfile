@@ -67,10 +67,10 @@ pipeline {
             }
         }
 
-        stage('Frontend - Build') {
+       stage('Frontend - Build') {
     steps {
         dir("${FRONTEND_DIR}") {
-            sh 'npx ng build --configuration production --prerender=false'
+            sh 'npx ng build --configuration production --output-mode=browser'
             archiveArtifacts artifacts: 'dist/**/*', allowEmptyArchive: true
         }
     }
