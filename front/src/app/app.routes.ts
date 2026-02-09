@@ -7,7 +7,6 @@ import { AuthGuard } from './guards/auth.guard';
 import { CreateProductComponent } from './create-product/create-product.component';
 import { EditProduct } from './edit-product/edit-product';
 
-
 export const routes: Routes = [
   {
     path: '',
@@ -20,8 +19,8 @@ export const routes: Routes = [
   },
   {
     path: 'dashboard',
-    component: Dashboard, 
-    canActivate: [AuthGuard] 
+    component: Dashboard,
+    canActivate: [AuthGuard],
   },
   {
     path: 'register',
@@ -35,13 +34,12 @@ export const routes: Routes = [
     path: 'create-product',
     component: CreateProductComponent,
     canActivate: [AuthGuard],
-    data: { role: 'ROLE_SELLER' }, // match the stored user role
+    data: { role: 'ROLE_SELLER' },
   },
   {
     path: 'edit-product/:id',
     component: EditProduct,
     canActivate: [AuthGuard],
-    data: { role: 'ROLE_SELLER' }
+    data: { role: 'ROLE_SELLER' },
   },
-  
 ];
