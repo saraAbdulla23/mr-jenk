@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'selenium/standalone-chrome:latest' // Chrome pre-installed
+            args '-u root:root' // run as root if needed
+        }
+    }
 
     tools {
         maven 'maven-3'
@@ -50,39 +55,11 @@ pipeline {
         stage('Set Chrome Binary') {
             steps {
                 script {
-                    // Detect Chrome or Chromium
+                    // Chrome should already exist in the Docker image
                     def chromePath = sh(script: 'which google-chrome || which chromium-browser || true', returnStdout: true).trim()
 
                     if (!chromePath) {
-                        echo "⚠ Chrome/Chromium not found, installing..."
-
-                        if (isUnix()) {
-                            // Linux installation
-                            sh '''
-                            if command -v apt-get > /dev/null; then
-                                sudo apt-get update && sudo apt-get install -y chromium-browser
-                            elif command -v yum > /dev/null; then
-                                sudo yum install -y chromium
-                            else
-                                echo "Manual install required for Chrome/Chromium on this OS."
-                            fi
-                            '''
-                            chromePath = sh(script: 'which chromium-browser || which google-chrome', returnStdout: true).trim()
-                        } else {
-                            // macOS installation
-                            sh '''
-                            if command -v brew > /dev/null; then
-                                brew install --cask google-chrome || true
-                            else
-                                echo "Homebrew not found — please install Chrome manually."
-                            fi
-                            '''
-                            chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-                        }
-                    }
-
-                    if (!chromePath || !fileExists(chromePath)) {
-                        error "❌ Chrome or Chromium installation failed. Cannot run frontend tests."
+                        error "❌ Chrome or Chromium not found in the Docker image!"
                     }
 
                     env.CHROME_BIN = chromePath
