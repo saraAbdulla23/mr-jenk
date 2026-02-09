@@ -48,24 +48,43 @@ pipeline {
             }
         }
 
-        stage('Set Chrome/Chromium Binary with Puppeteer Cache') {
+        stage('Setup Puppeteer & Chrome') {
             steps {
                 dir("${FRONTEND_DIR}") {
                     script {
-                        // Create Puppeteer cache folder
+                        // Puppeteer cache
                         sh "mkdir -p ${PUPPETEER_CACHE}"
-                        sh "npm config set puppeteer_download_host https://storage.googleapis.com/chromium-browser-snapshots"
-                        sh "npm config set PUPPETEER_CACHE ${PUPPETEER_CACHE}"
-                        
-                        // Install puppeteer (with caching)
+                        env.PUPPETEER_CACHE_DIR = "${PUPPETEER_CACHE}"
+                        env.PUPPETEER_DOWNLOAD_HOST = "https://storage.googleapis.com/chromium-browser-snapshots"
+
+                        // Install Puppeteer dependencies but skip download first
                         sh 'npm install puppeteer --ignore-scripts'
 
-                        // Set CHROME_BIN to Puppeteer's downloaded Chromium
-                        env.CHROME_BIN = sh(
-                            script: "node -e \"console.log(require('puppeteer').executablePath())\"",
-                            returnStdout: true
-                        ).trim()
-                        
+                        // Detect system Chrome/Chromium
+                        def chromePath = sh(script: 'which google-chrome || which chromium-browser || true', returnStdout: true).trim()
+
+                        if (!chromePath) {
+                            echo "⚠ Chrome/Chromium not found — installing local Chromium..."
+                            def arch = sh(script: 'uname -m', returnStdout: true).trim()
+                            def platform = (arch == "aarch64") ? "Linux_ARM64" : "Linux_x64"
+                            def version = "1551367"
+                            def chromeZip = "${WORKSPACE}/chromium/chrome.zip"
+                            def chromeDir = "${WORKSPACE}/chromium"
+
+                            sh """
+                                mkdir -p ${chromeDir}
+                                curl -L -o ${chromeZip} https://commondatastorage.googleapis.com/chromium-browser-snapshots/${platform}/${version}/chrome-linux.zip
+                                unzip -q ${chromeZip} -d ${chromeDir}
+                            """
+
+                            chromePath = "${chromeDir}/chrome-linux/chrome"
+                        }
+
+                        if (!chromePath || !fileExists(chromePath)) {
+                            error "❌ Chromium installation failed."
+                        }
+
+                        env.CHROME_BIN = chromePath
                         echo "✅ Chrome binary set to: ${env.CHROME_BIN}"
                     }
                 }
@@ -93,13 +112,10 @@ pipeline {
                     sh 'npm config set cache ${NPM_CACHE} --global'
                     sh 'node -v'
                     sh 'npm -v'
+
                     sh 'npm install --prefer-offline --no-audit --progress=false'
-                    
-                    // Angular tests with Puppeteer Chromium
-                    sh """
-                        export CHROME_BIN=${env.CHROME_BIN}
-                        npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox
-                    """
+
+                    sh 'npx ng test --watch=false --browsers=ChromeHeadless'
                 }
             }
         }
