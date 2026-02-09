@@ -30,7 +30,6 @@ pipeline {
     }
 
     triggers {
-        // Automatically trigger on Git push (polling every 2 mins)
         pollSCM('H/2 * * * *')
     }
 
@@ -165,17 +164,14 @@ def deployBackend(String dirPath) {
             sh "mkdir -p ${env.BACKEND_DEPLOY_DIR}"
             sh "mkdir -p ${env.BACKUP_DIR}/${serviceName}"
 
-            // Backup current deployment
             sh """
                 if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
                     cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
                 fi
             """
 
-            // Deploy with rollback
             try {
                 sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
-                // Restart service if systemctl exists
                 sh """
                     if command -v systemctl > /dev/null; then
                         systemctl restart ${serviceName} || echo 'Service restart failed, check manually.'
@@ -213,14 +209,12 @@ def deployFrontend(String dirPath) {
         sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR}"
         sh "mkdir -p ${env.BACKUP_DIR}/frontend"
 
-        // Backup current frontend
         sh """
             cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
             rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
             cp -r ${distDir}/* ${env.FRONTEND_DEPLOY_DIR}/
         """
 
-        // Restart web server if systemctl exists
         sh """
             if command -v systemctl > /dev/null; then
                 systemctl restart nginx || echo 'Nginx restart failed, check manually.'
