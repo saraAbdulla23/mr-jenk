@@ -17,7 +17,6 @@ pipeline {
         BACKUP_DIR = "${WORKSPACE}/deploy/backup"
 
         NPM_CACHE = "${WORKSPACE}/.npm"
-        PUPPETEER_CACHE = "${WORKSPACE}/.cache/puppeteer"
         CI = "true"
 
         NOTIFY_EMAIL = "sarakhalaf2312@gmail.com"
@@ -48,30 +47,14 @@ pipeline {
             }
         }
 
-        stage('Setup Puppeteer & Chrome') {
+        stage('Verify Firefox & Geckodriver') {
             steps {
-                dir("${FRONTEND_DIR}") {
-                    script {
-                        sh "mkdir -p ${PUPPETEER_CACHE}"
-                        env.PUPPETEER_CACHE_DIR = "${PUPPETEER_CACHE}"
-                        env.PUPPETEER_DOWNLOAD_HOST = "https://storage.googleapis.com/chromium-browser-snapshots"
-
-                        sh 'npm install puppeteer'
-
-                        def chromePath = sh(
-                            script: 'node -e "console.log(require(\'puppeteer\').executablePath())"',
-                            returnStdout: true
-                        ).trim()
-
-                        if (!fileExists(chromePath)) {
-                            chromePath = sh(script: 'which google-chrome || which chromium-browser || true', returnStdout: true).trim()
-                        }
-
-                        if (!chromePath) error "❌ Chrome/Chromium not found!"
-                        env.CHROME_BIN = chromePath
-                        echo "✅ Chrome binary set to: ${env.CHROME_BIN}"
-                    }
-                }
+                sh '''
+                    echo "== Firefox Version =="
+                    firefox --version
+                    echo "== Geckodriver Version =="
+                    geckodriver --version
+                '''
             }
         }
 
@@ -98,15 +81,8 @@ pipeline {
                     sh 'npm -v'
                     sh 'npm install --prefer-offline --no-audit --progress=false'
 
-                    script {
-                        def isMacARM = sh(script: "uname -m", returnStdout: true).trim() == "arm64"
-                        if (isMacARM) {
-                            echo "⚠ Skipping ChromeHeadless tests on macOS ARM — using fallback"
-                            sh 'npx ng test --watch=false --browsers=ChromeHeadlessCustom || echo "⚠ Frontend tests skipped"'
-                        } else {
-                            sh 'npx ng test --watch=false --browsers=ChromeHeadless || echo "⚠ Frontend tests failed"'
-                        }
-                    }
+                    // Run Angular tests in FirefoxHeadless
+                    sh 'npx ng test --watch=false --browsers=FirefoxHeadless || echo "⚠ Frontend tests failed"'
                 }
             }
         }
