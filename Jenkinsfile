@@ -43,13 +43,15 @@ pipeline {
                 }
             }
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: '*/master']],
-                    userRemoteConfigs: [[
-                        url: 'https://github.com/saraAbdulla23/mr-jenk.git'
-                    ]]
-                ])
+                dir("${WORKSPACE}") {
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/master']],
+                        userRemoteConfigs: [[
+                            url: 'https://github.com/saraAbdulla23/mr-jenk.git'
+                        ]]
+                    ])
+                }
             }
         }
 
