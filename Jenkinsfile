@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'sarakhalaf23/jenkins-agent:latest'
+            args '-u jenkins:jenkins' // run as Jenkins user inside container
+        }
+    }
 
     tools {
         maven 'maven-3'

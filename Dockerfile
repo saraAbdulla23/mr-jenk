@@ -3,7 +3,7 @@ FROM jenkins/inbound-agent:latest
 
 USER root
 
-# Install Firefox, Geckodriver, and dependencies
+# Install Firefox, Geckodriver, and necessary utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
     firefox-esr \
     wget \
@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     gnupg \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Install latest Geckodriver
@@ -23,14 +24,14 @@ RUN wget -qO /tmp/geckodriver.tar.gz https://github.com/mozilla/geckodriver/rele
 # Verify installations
 RUN firefox --version && geckodriver --version
 
-# Switch back to jenkins user
+# Switch back to Jenkins user
 USER jenkins
 
-# Optional: set npm global cache for Jenkins
+# Optional: set npm cache (if needed in the future)
 ENV NPM_CONFIG_CACHE=/home/jenkins/.npm
 
 # Optional: create directories for builds
-RUN mkdir -p /home/jenkins/.m2 /home/jenkins/workspace /home/jenkins/deploy
+RUN mkdir -p /home/jenkins/workspace /home/jenkins/deploy
 
 # Set working directory
 WORKDIR /home/jenkins
