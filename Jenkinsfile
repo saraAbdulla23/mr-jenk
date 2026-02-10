@@ -36,7 +36,12 @@ pipeline {
     stages {
 
         stage('Checkout SCM') {
-            agent any // Use any available node for checkout
+            agent {
+                docker {
+                    image 'sarakhalaf23/jenkins-agent:latest'
+                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
+                }
+            }
             steps {
                 checkout([
                     $class: 'GitSCM',
