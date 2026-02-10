@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             image 'sarakhalaf23/jenkins-agent:latest'
-            args '-u jenkins:jenkins' // run as Jenkins user inside container
+            args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock' // run as Jenkins user with Docker access
         }
     }
 
@@ -52,13 +52,23 @@ pipeline {
             }
         }
 
-        stage('Verify Firefox & Geckodriver') {
+        stage('Verify Tools') {
             steps {
                 sh '''
+                    echo "== Java Version =="
+                    java -version
+                    echo "== Maven Version =="
+                    mvn -version
+                    echo "== Node Version =="
+                    node -v
+                    echo "== NPM Version =="
+                    npm -v
                     echo "== Firefox Version =="
                     firefox --version
                     echo "== Geckodriver Version =="
                     geckodriver --version
+                    echo "== Docker Version =="
+                    docker --version
                 '''
             }
         }
@@ -80,14 +90,17 @@ pipeline {
         stage('Frontend - Install & Test') {
             steps {
                 dir("${FRONTEND_DIR}") {
-                    sh 'mkdir -p ${NPM_CACHE}'
-                    sh 'npm config set cache ${NPM_CACHE} --global'
-                    sh 'node -v'
-                    sh 'npm -v'
-                    sh 'npm install --prefer-offline --no-audit --progress=false'
-
-                    // Run Angular tests in FirefoxHeadless
-                    sh 'npx ng test --watch=false --browsers=FirefoxHeadless || echo "⚠ Frontend tests failed"'
+                    sh '''
+                        mkdir -p ${NPM_CACHE}
+                        npm config set cache ${NPM_CACHE} --global
+                        node -v
+                        npm -v
+                        npm install --prefer-offline --no-audit --progress=false
+                        # Run Angular tests in headless Firefox
+                        export DISPLAY=:99
+                        Xvfb :99 -screen 0 1280x1024x24 &
+                        npx ng test --watch=false --browsers=FirefoxHeadless || echo "⚠ Frontend tests failed"
+                    '''
                 }
             }
         }
@@ -95,7 +108,11 @@ pipeline {
         stage('Frontend - Build') {
             steps {
                 dir("${FRONTEND_DIR}") {
-                    sh 'npx ng build --configuration production'
+                    sh '''
+                        export DISPLAY=:99
+                        Xvfb :99 -screen 0 1280x1024x24 &
+                        npx ng build --configuration production
+                    '''
                     archiveArtifacts artifacts: 'dist/**', allowEmptyArchive: false
                 }
             }
