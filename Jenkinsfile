@@ -44,13 +44,15 @@ pipeline {
             }
             steps {
                 dir("${WORKSPACE}") {
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: '*/master']],
-                        userRemoteConfigs: [[
-                            url: 'https://github.com/saraAbdulla23/mr-jenk.git'
-                        ]]
-                    ])
+                    // Explicit clone to avoid "not in a git directory"
+                    sh """
+                        if [ ! -d .git ]; then
+                            git clone https://github.com/saraAbdulla23/mr-jenk.git .
+                        else
+                            git fetch --all
+                            git reset --hard origin/master
+                        fi
+                    """
                 }
             }
         }
