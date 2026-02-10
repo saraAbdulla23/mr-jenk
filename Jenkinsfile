@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             image 'sarakhalaf23/jenkins-agent:latest'
-            args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock' // run as Jenkins user with Docker access
+            args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
 
@@ -96,7 +96,8 @@ pipeline {
                         node -v
                         npm -v
                         npm install --prefer-offline --no-audit --progress=false
-                        # Run Angular tests in headless Firefox
+
+                        # Start Xvfb for headless Firefox
                         export DISPLAY=:99
                         Xvfb :99 -screen 0 1280x1024x24 &
                         npx ng test --watch=false --browsers=FirefoxHeadless || echo "⚠ Frontend tests failed"

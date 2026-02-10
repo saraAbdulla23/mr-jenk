@@ -1,5 +1,5 @@
 # =========================
-# Jenkins Inbound Agent + Firefox + Geckodriver + Docker
+# Jenkins Inbound Agent + Firefox + Geckodriver + Docker + Node + Maven
 # =========================
 FROM jenkins/inbound-agent:latest
 
@@ -35,12 +35,20 @@ RUN wget -qO /tmp/geckodriver.tar.gz \
 # -------------------------
 # Verify installations
 # -------------------------
-RUN firefox --version && geckodriver --version && docker --version && node -v && npm -v && mvn -v && git --version
+RUN firefox --version \
+    && geckodriver --version \
+    && docker --version \
+    && node -v \
+    && npm -v \
+    && mvn -v \
+    && git --version
 
 # -------------------------
 # Create Jenkins directories & npm cache
 # -------------------------
-RUN mkdir -p /home/jenkins/workspace /home/jenkins/deploy /home/jenkins/.npm
+RUN mkdir -p /home/jenkins/workspace \
+    /home/jenkins/deploy \
+    /home/jenkins/.npm
 
 # -------------------------
 # Switch back to Jenkins user
@@ -48,7 +56,16 @@ RUN mkdir -p /home/jenkins/workspace /home/jenkins/deploy /home/jenkins/.npm
 USER jenkins
 
 # -------------------------
-# Environment variables (optional)
+# Environment variables
 # -------------------------
 ENV NPM_CONFIG_CACHE=/home/jenkins/.npm
 WORKDIR /home/jenkins
+
+# -------------------------
+# Optional: add Docker group permissions
+# -------------------------
+# This allows running Docker commands without root inside the container
+USER root
+RUN groupadd -g 999 docker || true \
+    && usermod -aG docker jenkins
+USER jenkins
