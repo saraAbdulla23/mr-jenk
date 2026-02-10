@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'sarakhalaf23/jenkins-agent:latest'
-            args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent none // No global agent; we’ll define agent per stage
 
     tools {
         maven 'maven-3'
@@ -41,6 +36,7 @@ pipeline {
     stages {
 
         stage('Checkout SCM') {
+            agent any // Use any available node for checkout
             steps {
                 checkout([
                     $class: 'GitSCM',
@@ -53,6 +49,12 @@ pipeline {
         }
 
         stage('Verify Tools') {
+            agent {
+                docker {
+                    image 'sarakhalaf23/jenkins-agent:latest'
+                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
+                }
+            }
             steps {
                 sh '''
                     echo "== Java Version =="
@@ -74,6 +76,12 @@ pipeline {
         }
 
         stage('Backend - Build & Test') {
+            agent {
+                docker {
+                    image 'sarakhalaf23/jenkins-agent:latest'
+                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
+                }
+            }
             steps {
                 script {
                     parallel(
@@ -88,6 +96,12 @@ pipeline {
         }
 
         stage('Frontend - Install & Test') {
+            agent {
+                docker {
+                    image 'sarakhalaf23/jenkins-agent:latest'
+                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
+                }
+            }
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh '''
@@ -107,6 +121,12 @@ pipeline {
         }
 
         stage('Frontend - Build') {
+            agent {
+                docker {
+                    image 'sarakhalaf23/jenkins-agent:latest'
+                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
+                }
+            }
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh '''
@@ -120,10 +140,22 @@ pipeline {
         }
 
         stage('Deploy Backend') {
+            agent {
+                docker {
+                    image 'sarakhalaf23/jenkins-agent:latest'
+                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
+                }
+            }
             steps { script { deployBackend("${BACKEND_DIR}") } }
         }
 
         stage('Deploy Frontend') {
+            agent {
+                docker {
+                    image 'sarakhalaf23/jenkins-agent:latest'
+                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
+                }
+            }
             steps { script { deployFrontend("${FRONTEND_DIR}") } }
         }
     }
