@@ -1,5 +1,5 @@
 pipeline {
-    agent none // No global agent; we’ll define agent per stage
+    agent none // We'll define agent per stage
 
     tools {
         maven 'maven-3'
@@ -44,7 +44,7 @@ pipeline {
             }
             steps {
                 dir("${WORKSPACE}") {
-                    // Explicit clone to avoid "not in a git directory"
+                    // Fixed Git checkout: clone if not exists, else reset
                     sh """
                         if [ ! -d .git ]; then
                             git clone https://github.com/saraAbdulla23/mr-jenk.git .
@@ -58,12 +58,7 @@ pipeline {
         }
 
         stage('Verify Tools') {
-            agent {
-                docker {
-                    image 'sarakhalaf23/jenkins-agent:latest'
-                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
-                }
-            }
+            agent { docker { image 'sarakhalaf23/jenkins-agent:latest' args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}' } }
             steps {
                 sh '''
                     echo "== Java Version =="
@@ -85,12 +80,7 @@ pipeline {
         }
 
         stage('Backend - Build & Test') {
-            agent {
-                docker {
-                    image 'sarakhalaf23/jenkins-agent:latest'
-                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
-                }
-            }
+            agent { docker { image 'sarakhalaf23/jenkins-agent:latest' args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}' } }
             steps {
                 script {
                     parallel(
@@ -105,22 +95,14 @@ pipeline {
         }
 
         stage('Frontend - Install & Test') {
-            agent {
-                docker {
-                    image 'sarakhalaf23/jenkins-agent:latest'
-                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
-                }
-            }
+            agent { docker { image 'sarakhalaf23/jenkins-agent:latest' args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}' } }
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh '''
                         mkdir -p ${NPM_CACHE}
                         npm config set cache ${NPM_CACHE} --global
-                        node -v
-                        npm -v
                         npm install --prefer-offline --no-audit --progress=false
 
-                        # Start Xvfb for headless Firefox
                         export DISPLAY=:99
                         Xvfb :99 -screen 0 1280x1024x24 &
                         npx ng test --watch=false --browsers=FirefoxHeadless || echo "⚠ Frontend tests failed"
@@ -130,12 +112,7 @@ pipeline {
         }
 
         stage('Frontend - Build') {
-            agent {
-                docker {
-                    image 'sarakhalaf23/jenkins-agent:latest'
-                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
-                }
-            }
+            agent { docker { image 'sarakhalaf23/jenkins-agent:latest' args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}' } }
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh '''
@@ -149,22 +126,12 @@ pipeline {
         }
 
         stage('Deploy Backend') {
-            agent {
-                docker {
-                    image 'sarakhalaf23/jenkins-agent:latest'
-                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
-                }
-            }
+            agent { docker { image 'sarakhalaf23/jenkins-agent:latest' args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}' } }
             steps { script { deployBackend("${BACKEND_DIR}") } }
         }
 
         stage('Deploy Frontend') {
-            agent {
-                docker {
-                    image 'sarakhalaf23/jenkins-agent:latest'
-                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
-                }
-            }
+            agent { docker { image 'sarakhalaf23/jenkins-agent:latest' args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}' } }
             steps { script { deployFrontend("${FRONTEND_DIR}") } }
         }
     }
@@ -188,7 +155,7 @@ Check console for errors: ${env.BUILD_URL}"""
     }
 }
 
-// ================= BACKEND BUILD & TEST =================
+// ================= FUNCTIONS =================
 def buildAndTestBackend(String dirPath) {
     dir(dirPath) {
         sh 'java -version'
@@ -202,16 +169,12 @@ def buildAndTestBackend(String dirPath) {
         """
 
         def jarFile = sh(script: "ls target/*.jar | head -n 1 || true", returnStdout: true).trim()
-        if (!jarFile) {
-            echo "⚠ No JAR found in ${dirPath}/target — skipping archive/deploy."
-            return
-        }
+        if (!jarFile) { echo "⚠ No JAR found in ${dirPath}/target — skipping archive/deploy."; return }
 
         archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false
     }
 }
 
-// ================= DEPLOY BACKEND =================
 def deployBackend(String dirPath) {
     dir(dirPath) {
         def services = findFiles(glob: '**/target/*.jar').collect { it.path.replaceAll('/target/.*', '') }.unique()
@@ -219,11 +182,7 @@ def deployBackend(String dirPath) {
         services.each { serviceDir ->
             def jarFile = sh(script: "ls ${serviceDir}/target/*.jar | head -n 1 || true", returnStdout: true).trim()
             def serviceName = serviceDir.split('/')[-1]
-
-            if (!jarFile) {
-                echo "⚠ Skipping deployment for ${serviceName}: no JAR found."
-                return
-            }
+            if (!jarFile) { echo "⚠ Skipping deployment for ${serviceName}: no JAR found."; return }
 
             echo "Deploying backend service: ${serviceName}"
             sh "mkdir -p ${env.BACKEND_DEPLOY_DIR} ${env.BACKUP_DIR}/${serviceName}"
@@ -239,8 +198,6 @@ def deployBackend(String dirPath) {
                 sh """
                     if command -v systemctl > /dev/null; then
                         systemctl restart ${serviceName} || echo 'Service restart failed.'
-                    else
-                        echo 'systemctl not available — restart manually.'
                     fi
                 """
             } catch (err) {
@@ -259,14 +216,10 @@ def deployBackend(String dirPath) {
     }
 }
 
-// ================= DEPLOY FRONTEND =================
 def deployFrontend(String dirPath) {
     dir(dirPath) {
         def distDir = "${dirPath}/dist/front"
-        if (!fileExists(distDir)) {
-            echo "⚠ Frontend build artifacts not found — skipping deploy."
-            return
-        }
+        if (!fileExists(distDir)) { echo "⚠ Frontend build artifacts not found — skipping deploy."; return }
 
         echo "Deploying frontend..."
         sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR} ${env.BACKUP_DIR}/frontend"
@@ -280,8 +233,6 @@ def deployFrontend(String dirPath) {
         sh """
             if command -v systemctl > /dev/null; then
                 systemctl restart nginx || echo 'Nginx restart failed.'
-            else
-                echo 'systemctl not available — restart nginx manually.'
             fi
         """
     }
