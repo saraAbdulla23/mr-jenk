@@ -1,32 +1,24 @@
-# ===============================
-# Stage 1 - Build
-# ===============================
+# Stage 1: Build the frontend
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install
 
+# Copy the rest of the code and build
 COPY . .
-
 RUN npm run build
 
-# ===============================
-# Stage 2 - Runtime
-# ===============================
-FROM node:20-alpine
+# Stage 2: Serve with Nginx
+FROM nginx:alpine
 
-WORKDIR /app
+# Copy built files from builder
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Install only production deps
-COPY package*.json ./
-RUN npm install --omit=dev
+# Expose port 80
+EXPOSE 80
 
-# Copy built files
-COPY --from=builder /app/dist ./dist
-
-EXPOSE 4000
-
-# Angular SSR entry point
-CMD ["node", "dist/front/server/main.js"]
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]
