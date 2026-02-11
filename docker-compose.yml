@@ -35,7 +35,7 @@ services:
     image: api-gateway:${IMAGE_TAG}
     container_name: api-gateway
     ports:
-      - "8080:8080"
+      - "8087:8087"
     depends_on:
       - discovery-service
     networks:

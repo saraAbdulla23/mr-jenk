@@ -58,7 +58,7 @@ export class UploadImageComponent {
     const token = localStorage.getItem('auth-token'); // or tokenStore.getToken()
     const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
   
-    this.http.post('http://localhost:8080/api/media/upload', formData, {
+    this.http.post('http://localhost:8087/api/media/upload', formData, {
       headers,
       observe: 'events',
       reportProgress: true,

@@ -8,7 +8,7 @@ import { TokenStorageService } from './token-storage.service';
   providedIn: 'root',
 })
 export class MediaService {
-  private baseUrl = 'http://localhost:8080/api/media';
+  private baseUrl = 'http://localhost:8087/api/media';
 
   constructor(
     private http: HttpClient,

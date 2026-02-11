@@ -7,7 +7,7 @@ WORKDIR /app
 COPY ./target/api-gateway-0.0.1-SNAPSHOT.jar /app/app.jar
 
 # Expose API Gateway port
-EXPOSE 8080
+EXPOSE 8087
 
 # Run the JAR
 CMD ["java", "-jar", "app.jar"]

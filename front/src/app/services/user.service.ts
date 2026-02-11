@@ -6,8 +6,8 @@ import { TokenStorageService } from './token-storage.service';
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
-  private readonly API_URL = 'http://localhost:8080/api/user';
-  private readonly MEDIA_URL = 'http://localhost:8080/api/media/avatar/upload';
+  private readonly API_URL = 'http://localhost:8087/api/user';
+  private readonly MEDIA_URL = 'http://localhost:8087/api/media/avatar/upload';
 
   constructor(private http: HttpClient, private tokenStore: TokenStorageService) {}
 

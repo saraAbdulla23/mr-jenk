@@ -19,7 +19,7 @@ export interface AuthResponse {
   providedIn: 'root'
 })
 export class AuthService {
-  private API_URL = 'http://localhost:8080/auth';
+  private API_URL = 'http://localhost:8087/auth';
 
   constructor(
     private http: HttpClient,
