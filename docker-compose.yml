@@ -1,6 +1,5 @@
-version: "3.9"
-
 services:
+
   # ========================
   # Database
   # ========================
@@ -18,7 +17,9 @@ services:
   # Discovery Service
   # ========================
   discovery-service:
-    build: ./backend/discovery-service
+    build:
+      context: ./backend/discovery-service
+    image: discovery-service:${IMAGE_TAG}
     container_name: discovery-service
     ports:
       - "8761:8761"
@@ -29,7 +30,9 @@ services:
   # API Gateway
   # ========================
   api-gateway:
-    build: ./backend/api-gateway
+    build:
+      context: ./backend/api-gateway
+    image: api-gateway:${IMAGE_TAG}
     container_name: api-gateway
     ports:
       - "8080:8080"
@@ -44,7 +47,9 @@ services:
   # User Service
   # ========================
   user-service:
-    build: ./backend/user-service
+    build:
+      context: ./backend/user-service
+    image: user-service:${IMAGE_TAG}
     container_name: user-service
     ports:
       - "8082:8082"
@@ -61,7 +66,9 @@ services:
   # Product Service
   # ========================
   product-service:
-    build: ./backend/product-service
+    build:
+      context: ./backend/product-service
+    image: product-service:${IMAGE_TAG}
     container_name: product-service
     ports:
       - "8085:8085"
@@ -77,30 +84,12 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
 
   # ========================
-  # Media Service (commented for now)
-  # ========================
-  # media-service:
-  #   build: ./backend/media-service
-  #   container_name: media-service
-  #   ports:
-  #     - "8089:8089"
-  #   depends_on:
-  #     - discovery-service
-  #     - mongodb
-  #     - kafka
-  #   networks:
-  #     - ecommerce-net
-  #   environment:
-  #     SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/media_service_db
-  #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-  #     EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
-
-
-  # ========================
   # Frontend (Angular + Nginx)
   # ========================
   front:
-    build: ./front
+    build:
+      context: ./front
+    image: front:${IMAGE_TAG}
     container_name: front
     ports:
       - "4200:80"
@@ -117,6 +106,7 @@ services:
 # ========================
 volumes:
   mongo_data:
+
 
 # ========================
 # Networks
