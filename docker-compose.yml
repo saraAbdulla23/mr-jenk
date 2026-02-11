@@ -1,0 +1,155 @@
+version: "3.9"
+
+services:
+  # ========================
+  # Database
+  # ========================
+  mongodb:
+    image: mongo:6
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - ecommerce-net
+
+  # ========================
+  # Zookeeper (for Kafka)
+  # ========================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - ecommerce-net
+
+  # ========================
+  # Kafka
+  # ========================
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    networks:
+      - ecommerce-net
+
+  # ========================
+  # Discovery Service
+  # ========================
+  discovery-service:
+    build: ./backend/discovery-service
+    container_name: discovery-service
+    ports:
+      - "8761:8761"
+    networks:
+      - ecommerce-net
+
+  # ========================
+  # API Gateway
+  # ========================
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - discovery-service
+    networks:
+      - ecommerce-net
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+
+  # ========================
+  # User Service
+  # ========================
+  user-service:
+    build: ./backend/user-service
+    container_name: user-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - discovery-service
+      - mongodb
+    networks:
+      - ecommerce-net
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/user_service_db
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+
+  # ========================
+  # Product Service
+  # ========================
+  product-service:
+    build: ./backend/product-service
+    container_name: product-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      - discovery-service
+      - mongodb
+      - kafka
+    networks:
+      - ecommerce-net
+    environment:
+      SPRING_DATA_MONGODB_HOST: mongodb
+      SPRING_DATA_MONGODB_PORT: 27017
+      SPRING_DATA_MONGODB_DATABASE: buy01db
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+
+  # ========================
+  # Media Service (commented for now)
+  # ========================
+  # media-service:
+  #   build: ./backend/media-service
+  #   container_name: media-service
+  #   ports:
+  #     - "8089:8089"
+  #   depends_on:
+  #     - discovery-service
+  #     - mongodb
+  #     - kafka
+  #   networks:
+  #     - ecommerce-net
+  #   environment:
+  #     SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/media_service_db
+  #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  #     EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+
+  # ========================
+  # Frontend
+  # ========================
+  front:
+    build: ./front
+    container_name: front
+    ports:
+      - "4000:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - ecommerce-net
+
+# ========================
+# Volumes
+# ========================
+volumes:
+  mongo_data:
+
+# ========================
+# Networks
+# ========================
+networks:
+  ecommerce-net:
+    driver: bridge
