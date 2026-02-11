@@ -1,5 +1,5 @@
 pipeline {
-    agent none // We'll define agent per stage
+    agent any
 
     tools {
         maven 'maven-3'
@@ -7,233 +7,213 @@ pipeline {
     }
 
     environment {
-        BACKEND_DIR    = "backend"
-        FRONTEND_DIR   = "front"
+        VERSION        = "v${env.BUILD_NUMBER}"
+        STABLE_TAG     = "stable"
+        IMAGE_TAG      = "${VERSION}"
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
-        SPRING_PROFILES_ACTIVE = "test"
-
-        BACKEND_DEPLOY_DIR = "${WORKSPACE}/deploy/backend"
-        FRONTEND_DEPLOY_DIR = "${WORKSPACE}/deploy/frontend"
-        BACKUP_DIR = "${WORKSPACE}/deploy/backup"
-
-        NPM_CACHE = "${WORKSPACE}/.npm"
-        CI = "true"
-
-        NOTIFY_EMAIL = "sarakhalaf2312@gmail.com"
+        NPM_CACHE      = "${WORKSPACE}/.npm"
+        CI             = "true"
+        NOTIFY_EMAIL   = "sarakhalaf2312@gmail.com"
     }
 
     options {
         timestamps()
         timeout(time: 60, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10'))
-        parallelsAlwaysFailFast()
-    }
-
-    triggers {
-        pollSCM('H/2 * * * *')
     }
 
     stages {
 
-        stage('Checkout SCM') {
-            agent {
-                docker {
-                    image 'sarakhalaf23/jenkins-agent:latest'
-                    args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}'
-                }
-            }
+        // ========================
+        // PRECHECK: Docker Permissions
+        // ========================
+        stage('Precheck - Docker Access') {
             steps {
-                dir("${WORKSPACE}") {
-                    // Fixed Git checkout: clone if not exists, else reset
-                    sh """
-                        if [ ! -d .git ]; then
-                            git clone https://github.com/saraAbdulla23/mr-jenk.git .
-                        else
-                            git fetch --all
-                            git reset --hard origin/master
-                        fi
-                    """
+                script {
+                    // Check Docker CLI availability
+                    sh 'docker --version'
+                    sh 'docker compose version'
+
+                    // Check Docker socket permissions
+                    def sock = '/var/run/docker.sock'
+                    def sockInfo = sh(script: "ls -l ${sock}", returnStdout: true).trim()
+                    echo "Docker socket info: ${sockInfo}"
+
+                    // Warn if Jenkins cannot access Docker socket
+                    def canAccess = sh(script: "docker info > /dev/null 2>&1 && echo OK || echo FAIL", returnStdout: true).trim()
+                    if (canAccess != 'OK') {
+                        error """
+                        Jenkins cannot access Docker. 
+                        Make sure the Jenkins user is in the 'docker' group and the Docker socket is correct:
+                        sudo usermod -aG docker jenkins
+                        """
+                    }
                 }
             }
         }
 
-        stage('Verify Tools') {
-            agent { docker { image 'sarakhalaf23/jenkins-agent:latest' args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}' } }
+        // ========================
+        // CHECKOUT
+        // ========================
+        stage('Checkout') {
             steps {
-                sh '''
-                    echo "== Java Version =="
-                    java -version
-                    echo "== Maven Version =="
-                    mvn -version
-                    echo "== Node Version =="
-                    node -v
-                    echo "== NPM Version =="
-                    npm -v
-                    echo "== Firefox Version =="
-                    firefox --version
-                    echo "== Geckodriver Version =="
-                    geckodriver --version
-                    echo "== Docker Version =="
-                    docker --version
-                '''
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/master']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/saraAbdulla23/mr-jenk.git'
+                    ]]
+                ])
             }
         }
 
+        // ========================
+        // BACKEND BUILD + TEST
+        // ========================
         stage('Backend - Build & Test') {
-            agent { docker { image 'sarakhalaf23/jenkins-agent:latest' args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}' } }
             steps {
                 script {
                     parallel(
-                        "Discovery Service": { buildAndTestBackend("${BACKEND_DIR}/discovery-service") },
-                        "API Gateway":       { buildAndTestBackend("${BACKEND_DIR}/api-gateway") },
-                        "User Service":      { buildAndTestBackend("${BACKEND_DIR}/user-service") },
-                        "Product Service":   { buildAndTestBackend("${BACKEND_DIR}/product-service") },
-                        "Media Service":     { buildAndTestBackend("${BACKEND_DIR}/media-service") }
+                        "Discovery": { buildBackend("backend/discovery-service") },
+                        "Gateway":   { buildBackend("backend/api-gateway") },
+                        "User":      { buildBackend("backend/user-service") },
+                        "Product":   { buildBackend("backend/product-service") }
                     )
                 }
             }
         }
 
-        stage('Frontend - Install & Test') {
-            agent { docker { image 'sarakhalaf23/jenkins-agent:latest' args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}' } }
-            steps {
-                dir("${FRONTEND_DIR}") {
-                    sh '''
-                        mkdir -p ${NPM_CACHE}
-                        npm config set cache ${NPM_CACHE} --global
-                        npm install --prefer-offline --no-audit --progress=false
-
-                        export DISPLAY=:99
-                        Xvfb :99 -screen 0 1280x1024x24 &
-                        npx ng test --watch=false --browsers=FirefoxHeadless || echo "⚠ Frontend tests failed"
-                    '''
-                }
-            }
-        }
-
+        // ========================
+        // FRONTEND BUILD + TEST
+        // ========================
         stage('Frontend - Build') {
-            agent { docker { image 'sarakhalaf23/jenkins-agent:latest' args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}' } }
             steps {
-                dir("${FRONTEND_DIR}") {
-                    sh '''
-                        export DISPLAY=:99
-                        Xvfb :99 -screen 0 1280x1024x24 &
-                        npx ng build --configuration production
-                    '''
-                    archiveArtifacts artifacts: 'dist/**', allowEmptyArchive: false
+                dir('front') {
+                    sh 'mkdir -p ${NPM_CACHE}'
+                    sh 'npm config set cache ${NPM_CACHE} --global'
+                    sh 'npm ci'
+                    sh 'npm run build'
                 }
             }
         }
 
-        stage('Deploy Backend') {
-            agent { docker { image 'sarakhalaf23/jenkins-agent:latest' args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}' } }
-            steps { script { deployBackend("${BACKEND_DIR}") } }
+        // ========================
+        // BUILD DOCKER IMAGES
+        // ========================
+        stage('Build Docker Images') {
+            steps {
+                script {
+                    echo "Building Docker images with tag: ${VERSION}"
+                    withEnv(["IMAGE_TAG=${VERSION}"]) {
+                        sh 'docker compose build'
+                    }
+                }
+            }
         }
 
-        stage('Deploy Frontend') {
-            agent { docker { image 'sarakhalaf23/jenkins-agent:latest' args '-u jenkins:jenkins -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}' } }
-            steps { script { deployFrontend("${FRONTEND_DIR}") } }
+        // ========================
+        // DEPLOY & VERIFY
+        // ========================
+        stage('Deploy & Verify') {
+            steps {
+                script {
+                    try {
+                        echo "Deploying version ${VERSION}"
+                        withEnv(["IMAGE_TAG=${VERSION}"]) {
+                            sh 'docker compose up -d'
+                        }
+
+                        echo "Waiting for containers..."
+                        sleep 20
+
+                        // Check for crashed containers
+                        sh """
+                            if docker compose ps | grep Exit; then
+                                echo "Detected crashed containers!"
+                                exit 1
+                            fi
+                        """
+
+                        echo "Deployment verified successfully."
+
+                        // Tag images as stable
+                        sh """
+                            docker tag discovery-service:${VERSION} discovery-service:${STABLE_TAG} || true
+                            docker tag api-gateway:${VERSION} api-gateway:${STABLE_TAG} || true
+                            docker tag user-service:${VERSION} user-service:${STABLE_TAG} || true
+                            docker tag product-service:${VERSION} product-service:${STABLE_TAG} || true
+                            docker tag front:${VERSION} front:${STABLE_TAG} || true
+                        """
+
+                        echo "Stable version updated."
+
+                    } catch (Exception e) {
+                        echo "Deployment failed! Rolling back..."
+
+                        withEnv(["IMAGE_TAG=${STABLE_TAG}"]) {
+                            sh 'docker compose up -d'
+                        }
+
+                        error "Rollback executed due to failure."
+                    }
+                }
+            }
         }
     }
 
+    // ========================
+    // POST ACTIONS
+    // ========================
     post {
-        always { cleanWs() }
+
+        always {
+            junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
+            cleanWs()
+        }
+
         success {
             mail to: "${env.NOTIFY_EMAIL}",
-                 subject: '✅ Jenkins Build & Deploy Successful',
-                 body: """CI/CD pipeline completed successfully.
+                 subject: "✅ Build & Deployment SUCCESS - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: """
+Build successful!
 
-Backend + Frontend built and deployed.
-Check Jenkins console: ${env.BUILD_URL}"""
+Version: ${env.VERSION}
+Branch: master
+Job: ${env.JOB_NAME}
+Build: ${env.BUILD_NUMBER}
+
+Details: ${env.BUILD_URL}
+"""
         }
+
         failure {
             mail to: "${env.NOTIFY_EMAIL}",
-                 subject: '❌ Jenkins Build/Deploy Failed',
-                 body: """Pipeline failed at stage: ${env.STAGE_NAME ?: 'Unknown'}.
-Check console for errors: ${env.BUILD_URL}"""
+                 subject: "❌ Build or Deployment FAILED - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: """
+Build failed!
+
+Version: ${env.VERSION}
+Job: ${env.JOB_NAME}
+Build: ${env.BUILD_NUMBER}
+
+Rollback (if needed) attempted.
+
+Check logs:
+${env.BUILD_URL}
+"""
         }
     }
 }
 
-// ================= FUNCTIONS =================
-def buildAndTestBackend(String dirPath) {
-    dir(dirPath) {
-        sh 'java -version'
-        sh 'mvn -version'
+// ========================
+// BACKEND BUILD FUNCTION
+// ========================
+def buildBackend(String path) {
+    dir(path) {
         sh 'mkdir -p ${MVN_LOCAL_REPO}'
-
         sh """
             mvn clean test package -B \
-            -Dmaven.repo.local=${env.MVN_LOCAL_REPO} \
-            -Dspring.profiles.active=${env.SPRING_PROFILES_ACTIVE}
-        """
-
-        def jarFile = sh(script: "ls target/*.jar | head -n 1 || true", returnStdout: true).trim()
-        if (!jarFile) { echo "⚠ No JAR found in ${dirPath}/target — skipping archive/deploy."; return }
-
-        archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false
-    }
-}
-
-def deployBackend(String dirPath) {
-    dir(dirPath) {
-        def services = findFiles(glob: '**/target/*.jar').collect { it.path.replaceAll('/target/.*', '') }.unique()
-
-        services.each { serviceDir ->
-            def jarFile = sh(script: "ls ${serviceDir}/target/*.jar | head -n 1 || true", returnStdout: true).trim()
-            def serviceName = serviceDir.split('/')[-1]
-            if (!jarFile) { echo "⚠ Skipping deployment for ${serviceName}: no JAR found."; return }
-
-            echo "Deploying backend service: ${serviceName}"
-            sh "mkdir -p ${env.BACKEND_DEPLOY_DIR} ${env.BACKUP_DIR}/${serviceName}"
-
-            sh """
-                if [ -f ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ]; then
-                    cp ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar ${env.BACKUP_DIR}/${serviceName}/
-                fi
-            """
-
-            try {
-                sh "cp ${jarFile} ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar"
-                sh """
-                    if command -v systemctl > /dev/null; then
-                        systemctl restart ${serviceName} || echo 'Service restart failed.'
-                    fi
-                """
-            } catch (err) {
-                echo "⚠ Deployment failed for ${serviceName}, rolling back..."
-                sh """
-                    if ls ${env.BACKUP_DIR}/${serviceName}/*.jar 1> /dev/null 2>&1; then
-                        cp \$(ls ${env.BACKUP_DIR}/${serviceName}/*.jar | tail -n 1) ${env.BACKEND_DEPLOY_DIR}/${serviceName}.jar
-                        if command -v systemctl > /dev/null; then
-                            systemctl restart ${serviceName} || echo 'Rollback restart failed.'
-                        fi
-                    fi
-                """
-                echo "❌ Deployment failed for ${serviceName}, rollback executed."
-            }
-        }
-    }
-}
-
-def deployFrontend(String dirPath) {
-    dir(dirPath) {
-        def distDir = "${dirPath}/dist/front"
-        if (!fileExists(distDir)) { echo "⚠ Frontend build artifacts not found — skipping deploy."; return }
-
-        echo "Deploying frontend..."
-        sh "mkdir -p ${env.FRONTEND_DEPLOY_DIR} ${env.BACKUP_DIR}/frontend"
-
-        sh """
-            cp -r ${env.FRONTEND_DEPLOY_DIR}/* ${env.BACKUP_DIR}/frontend/ || true
-            rm -rf ${env.FRONTEND_DEPLOY_DIR}/*
-            cp -r ${distDir}/* ${env.FRONTEND_DEPLOY_DIR}/
-        """
-
-        sh """
-            if command -v systemctl > /dev/null; then
-                systemctl restart nginx || echo 'Nginx restart failed.'
-            fi
+            -Dmaven.repo.local=${env.MVN_LOCAL_REPO}
         """
     }
 }
