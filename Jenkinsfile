@@ -14,6 +14,13 @@ pipeline {
         NPM_CACHE      = "${WORKSPACE}/.npm"
         CI             = "true"
         NOTIFY_EMAIL   = "sarakhalaf2312@gmail.com"
+
+        // Ports from docker-compose
+        FRONTEND_PORT       = "4200"
+        API_GATEWAY_PORT    = "8087"
+        DISCOVERY_PORT      = "8761"
+        USER_SERVICE_PORT   = "8082"
+        PRODUCT_SERVICE_PORT= "8085"
     }
 
     options {
@@ -24,27 +31,22 @@ pipeline {
 
     stages {
 
-        // ========================
         // PRECHECK: Docker Permissions
-        // ========================
         stage('Precheck - Docker Access') {
             steps {
                 script {
-                    // Check Docker CLI availability
                     sh 'docker --version'
                     sh 'docker compose version'
 
-                    // Check Docker socket permissions
                     def sock = '/var/run/docker.sock'
                     def sockInfo = sh(script: "ls -l ${sock}", returnStdout: true).trim()
                     echo "Docker socket info: ${sockInfo}"
 
-                    // Warn if Jenkins cannot access Docker socket
                     def canAccess = sh(script: "docker info > /dev/null 2>&1 && echo OK || echo FAIL", returnStdout: true).trim()
                     if (canAccess != 'OK') {
                         error """
                         Jenkins cannot access Docker. 
-                        Make sure the Jenkins user is in the 'docker' group and the Docker socket is correct:
+                        Make sure the Jenkins user is in the 'docker' group:
                         sudo usermod -aG docker jenkins
                         """
                     }
@@ -52,9 +54,7 @@ pipeline {
             }
         }
 
-        // ========================
         // CHECKOUT
-        // ========================
         stage('Checkout') {
             steps {
                 checkout([
@@ -67,9 +67,7 @@ pipeline {
             }
         }
 
-        // ========================
         // BACKEND BUILD + TEST
-        // ========================
         stage('Backend - Build & Test') {
             steps {
                 script {
@@ -83,9 +81,7 @@ pipeline {
             }
         }
 
-        // ========================
         // FRONTEND BUILD + TEST
-        // ========================
         stage('Frontend - Build') {
             steps {
                 dir('front') {
@@ -97,9 +93,7 @@ pipeline {
             }
         }
 
-        // ========================
         // BUILD DOCKER IMAGES
-        // ========================
         stage('Build Docker Images') {
             steps {
                 script {
@@ -111,9 +105,7 @@ pipeline {
             }
         }
 
-        // ========================
         // DEPLOY & VERIFY
-        // ========================
         stage('Deploy & Verify') {
             steps {
                 script {
@@ -123,7 +115,7 @@ pipeline {
                             sh 'docker compose up -d'
                         }
 
-                        echo "Waiting for containers..."
+                        echo "Waiting for containers to start..."
                         sleep 20
 
                         // Check for crashed containers
@@ -136,6 +128,13 @@ pipeline {
 
                         echo "Deployment verified successfully."
 
+                        // Smoke tests for each service
+                        checkService("Frontend", "http://localhost:${FRONTEND_PORT}")
+                        checkService("API Gateway", "http://localhost:${API_GATEWAY_PORT}/actuator/health")
+                        checkService("Discovery Service", "http://localhost:${DISCOVERY_PORT}/actuator/health")
+                        checkService("User Service", "http://localhost:${USER_SERVICE_PORT}/actuator/health")
+                        checkService("Product Service", "http://localhost:${PRODUCT_SERVICE_PORT}/actuator/health")
+
                         // Tag images as stable
                         sh """
                             docker tag discovery-service:${VERSION} discovery-service:${STABLE_TAG} || true
@@ -147,6 +146,15 @@ pipeline {
 
                         echo "Stable version updated."
 
+                        // Print clickable URLs
+                        echo """
+✅ Access your deployed services:
+Frontend:       http://localhost:${FRONTEND_PORT}
+API Gateway:    http://localhost:${API_GATEWAY_PORT}
+Discovery:      http://localhost:${DISCOVERY_PORT}
+User Service:   http://localhost:${USER_SERVICE_PORT}/actuator/health
+Product Service:http://localhost:${PRODUCT_SERVICE_PORT}/actuator/health
+"""
                     } catch (Exception e) {
                         echo "Deployment failed! Rolling back..."
 
@@ -161,9 +169,7 @@ pipeline {
         }
     }
 
-    // ========================
     // POST ACTIONS
-    // ========================
     post {
 
         always {
@@ -183,6 +189,9 @@ Job: ${env.JOB_NAME}
 Build: ${env.BUILD_NUMBER}
 
 Details: ${env.BUILD_URL}
+
+Frontend:       http://localhost:${FRONTEND_PORT}
+API Gateway:    http://localhost:${API_GATEWAY_PORT}
 """
         }
 
@@ -205,9 +214,7 @@ ${env.BUILD_URL}
     }
 }
 
-// ========================
 // BACKEND BUILD FUNCTION
-// ========================
 def buildBackend(String path) {
     dir(path) {
         sh 'mkdir -p ${MVN_LOCAL_REPO}'
@@ -216,4 +223,24 @@ def buildBackend(String path) {
             -Dmaven.repo.local=${env.MVN_LOCAL_REPO}
         """
     }
+}
+
+// SMOKE TEST FUNCTION
+def checkService(String name, String url) {
+    sh """
+        echo "Checking ${name} at ${url} ..."
+        for i in {1..10}; do
+            if curl -s -f ${url} > /dev/null; then
+                echo "${name} is healthy."
+                break
+            else
+                echo "Waiting for ${name}..."
+                sleep 5
+            fi
+            if [ \$i -eq 10 ]; then
+                echo "${name} failed health check!"
+                exit 1
+            fi
+        done
+    """
 }
