@@ -18,7 +18,9 @@ pipeline {
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
         NPM_CACHE      = "${WORKSPACE}/.npm"
         CI             = "true"
-        NOTIFY_EMAIL   = "sarakhalaf2312@gmail.com"
+
+        // Dynamic email, set as Jenkins parameter or environment variable
+        NOTIFY_EMAIL   = "${env.NOTIFY_EMAIL ?: 'default_email@example.com'}"
 
         FRONTEND_PORT        = "4200"
         API_GATEWAY_PORT     = "8087"
@@ -82,6 +84,39 @@ sudo usermod -aG docker jenkins
             }
         }
 
+        stage('Frontend - Test (Karma)') {
+            steps {
+                dir('front') {
+                    // Ensure npm cache directory exists
+                    sh 'mkdir -p ${NPM_CACHE}'
+                    sh 'npm config set cache ${NPM_CACHE} --global'
+
+                    // Install dependencies
+                    sh 'npm ci'
+
+                    // Install JUnit reporter for Karma if missing
+                    sh 'npm install karma-junit-reporter --save-dev'
+
+                    // Ensure test-results directory exists for reports
+                    sh 'mkdir -p test-results'
+
+                    // Run Angular tests headless with JUnit reporter
+                    sh """
+                        npx ng test --watch=false --browsers=ChromeHeadless \
+                        --code-coverage \
+                        --reporters=progress,junit \
+                        --output-path=test-results
+                    """
+                }
+            }
+            post {
+                always {
+                    // Publish JUnit test results
+                    junit allowEmptyResults: false, testResults: 'front/test-results/**/*.xml'
+                }
+            }
+        }
+
         stage('Frontend - Build') {
             steps {
                 dir('front') {
@@ -113,7 +148,7 @@ sudo usermod -aG docker jenkins
                             sh 'docker compose up -d'
                         }
 
-                        echo "Waiting for containers to start..."
+                        echo "Waiting for containers..."
                         sleep 20
 
                         sh """
@@ -140,22 +175,11 @@ sudo usermod -aG docker jenkins
                         """
 
                         echo "Stable version updated."
-
-                        echo """
-Access your deployed services:
-Frontend:       http://localhost:${FRONTEND_PORT}
-API Gateway:    http://localhost:${API_GATEWAY_PORT}
-Discovery:      http://localhost:${DISCOVERY_PORT}
-User Service:   http://localhost:${USER_SERVICE_PORT}/actuator/health
-Product Service:http://localhost:${PRODUCT_SERVICE_PORT}/actuator/health
-"""
                     } catch (Exception e) {
                         echo "Deployment failed! Rolling back..."
-
                         withEnv(["IMAGE_TAG=${STABLE_TAG}"]) {
                             sh 'docker compose up -d'
                         }
-
                         error "Rollback executed due to failure."
                     }
                 }
@@ -164,9 +188,7 @@ Product Service:http://localhost:${PRODUCT_SERVICE_PORT}/actuator/health
     }
 
     post {
-
         always {
-            junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
             cleanWs()
         }
 
@@ -204,6 +226,7 @@ ${env.BUILD_URL}
     }
 }
 
+// Backend build helper
 def buildBackend(String path) {
     dir(path) {
         sh 'mkdir -p ${MVN_LOCAL_REPO}'
@@ -214,6 +237,7 @@ def buildBackend(String path) {
     }
 }
 
+// Health check helper
 def checkService(String name, String url) {
     sh """
         echo "Checking ${name} at ${url} ..."
