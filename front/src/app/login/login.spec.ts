@@ -1,5 +1,8 @@
+// login.spec.ts
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Login } from './login';
+import { AuthService } from '../services/auth.service';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
 
 describe('Login Component', () => {
   let component: Login;
@@ -7,7 +10,8 @@ describe('Login Component', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [Login],
+      imports: [Login, HttpClientTestingModule],
+      providers: [AuthService],
     }).compileComponents();
 
     fixture = TestBed.createComponent(Login);

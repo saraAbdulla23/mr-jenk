@@ -12,9 +12,9 @@ module.exports = function (config) {
     client: {
       clearContext: false
     },
-    reporters: ['progress', 'junit', 'coverage'],
+    reporters: ['progress', 'junit', 'coverage'], // register junit here
     junitReporter: {
-      outputDir: 'test-results', // relative to karma.conf.js
+      outputDir: 'test-results', // relative to front/
       outputFile: 'frontend-results.xml',
       useBrowserName: false
     },
