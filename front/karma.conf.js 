@@ -1,7 +1,13 @@
+// karma.conf.js
 module.exports = function (config) {
   config.set({
+    // Base path that will be used to resolve all patterns (eg. files, exclude)
     basePath: '',
+
+    // Frameworks to use
     frameworks: ['jasmine', '@angular-devkit/build-angular'],
+
+    // Plugins
     plugins: [
       require('karma-jasmine'),
       require('karma-chrome-launcher'),
@@ -9,26 +15,55 @@ module.exports = function (config) {
       require('karma-coverage'),
       require('@angular-devkit/build-angular/plugins/karma')
     ],
+
+    // Client configuration
     client: {
-      clearContext: false
+      clearContext: false // leave Jasmine Spec Runner output visible in browser
     },
-    reporters: ['progress', 'junit', 'coverage'], // register junit here
+
+    // Test results reporters
+    reporters: ['progress', 'junit', 'coverage'],
+
+    // JUnit reporter config
     junitReporter: {
       outputDir: 'test-results', // relative to front/
       outputFile: 'frontend-results.xml',
-      useBrowserName: false
+      useBrowserName: false,    // do not append browser name to report
+      suite: '',                // optional suite name
     },
+
+    // Code coverage config
     coverageReporter: {
-      type: 'html',
-      dir: 'coverage/',
-      subdir: '.'
+      dir: require('path').join(__dirname, 'coverage'),
+      subdir: '.',
+      reporters: [
+        { type: 'html' },
+        { type: 'text-summary' }
+      ]
     },
+
+    // Web server port
     port: 9876,
+
+    // Enable / disable colors in the output
     colors: true,
+
+    // Logging level
     logLevel: config.LOG_INFO,
+
+    // Enable / disable watching file and executing tests whenever any file changes
     autoWatch: false,
+
+    // Start these browsers
     browsers: ['ChromeHeadless'],
+
+    // Continuous Integration mode
     singleRun: true,
-    restartOnFileChange: false
+
+    // Restart tests on file change
+    restartOnFileChange: false,
+
+    // Increase timeout for CI environments
+    browserNoActivityTimeout: 100000
   });
 };

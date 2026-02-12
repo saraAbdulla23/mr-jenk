@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:ci": "ng test --watch=false --browsers=ChromeHeadless",
+    "test:ci": "ng test --watch=false --browsers=ChromeHeadless --code-coverage --reporters=progress,junit",
     "serve:ssr:front": "node dist/front/server/server.mjs"
   },
   "prettier": {
