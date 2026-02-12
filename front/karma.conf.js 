@@ -1,5 +1,14 @@
 // karma.conf.js
 module.exports = function (config) {
+  const path = require('path');
+  const fs = require('fs');
+
+  // Ensure test-results folder exists
+  const testResultsDir = path.join(__dirname, 'test-results');
+  if (!fs.existsSync(testResultsDir)) {
+    fs.mkdirSync(testResultsDir, { recursive: true });
+  }
+
   config.set({
     // Base path that will be used to resolve all patterns (eg. files, exclude)
     basePath: '',
@@ -28,13 +37,15 @@ module.exports = function (config) {
     junitReporter: {
       outputDir: 'test-results', // relative to front/
       outputFile: 'frontend-results.xml',
-      useBrowserName: false,    // do not append browser name to report
-      suite: '',                // optional suite name
+      useBrowserName: false,     // do not append browser name to report
+      suite: '',                 // optional suite name
+      nameFormatter: undefined,  // default
+      classNameFormatter: undefined // default
     },
 
     // Code coverage config
     coverageReporter: {
-      dir: require('path').join(__dirname, 'coverage'),
+      dir: path.join(__dirname, 'coverage'),
       subdir: '.',
       reporters: [
         { type: 'html' },
@@ -55,7 +66,21 @@ module.exports = function (config) {
     autoWatch: false,
 
     // Start these browsers
-    browsers: ['ChromeHeadless'],
+    browsers: ['ChromeHeadlessCI'],
+
+    // Custom launcher for CI
+    customLaunchers: {
+      ChromeHeadlessCI: {
+        base: 'ChromeHeadless',
+        flags: [
+          '--no-sandbox',        // required for most CI systems
+          '--disable-gpu',
+          '--disable-translate',
+          '--disable-extensions',
+          '--remote-debugging-port=9222',
+        ]
+      }
+    },
 
     // Continuous Integration mode
     singleRun: true,
@@ -64,6 +89,6 @@ module.exports = function (config) {
     restartOnFileChange: false,
 
     // Increase timeout for CI environments
-    browserNoActivityTimeout: 100000
+    browserNoActivityTimeout: 120000
   });
 };
