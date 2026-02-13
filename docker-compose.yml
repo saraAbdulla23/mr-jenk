@@ -55,6 +55,8 @@ services:
       - "8761:8761"
     networks:
       - ecommerce-net
+    depends_on:
+      - mongodb
 
   # ========================
   # API Gateway
