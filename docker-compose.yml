@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
 
   # ========================
@@ -12,6 +14,34 @@ services:
       - mongo_data:/data/db
     networks:
       - ecommerce-net
+
+  # ========================
+  # SonarQube
+  # ========================
+  sonarqube:
+    image: sonarqube:latest
+    container_name: sonarqube
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    ports:
+      - "9000:9000"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+        reservations:
+          memory: 2g
+    networks:
+      - ecommerce-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/health"]
+      interval: 10s
+      retries: 20
+      start_period: 60s
 
   # ========================
   # Discovery Service
@@ -100,13 +130,11 @@ services:
     environment:
       VITE_API_GATEWAY_URL: http://api-gateway:8080
 
-
 # ========================
 # Volumes
 # ========================
 volumes:
   mongo_data:
-
 
 # ========================
 # Networks
