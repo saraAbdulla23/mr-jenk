@@ -34,7 +34,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "curl -s -f http://localhost:9000/api/system/health || exit 1"]
       interval: 10s
-      retries: 20
+      retries: 30
       start_period: 60s
 
   # ========================
