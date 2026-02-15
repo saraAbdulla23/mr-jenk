@@ -82,6 +82,32 @@ sudo usermod -aG docker jenkins
             }
         }
 
+        // =============================
+        // SonarQube Analysis Stage
+        // =============================
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    withSonarQubeEnv('SonarQube') {  // Must match Jenkins SonarQube name
+                        sh """
+                            mvn clean verify sonar:sonar \
+                            -Dsonar.projectKey=ecommerce-platform \
+                            -Dsonar.host.url=http://sonarqube:9000 \
+                            -Dsonar.login=${sonar-token}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
         stage('Frontend - Build') {
             steps {
                 dir('front') {
@@ -164,7 +190,6 @@ Product Service:http://localhost:${PRODUCT_SERVICE_PORT}/actuator/health
     }
 
     post {
-
         always {
             junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
             cleanWs()
