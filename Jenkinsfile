@@ -86,19 +86,22 @@ sudo usermod -aG docker jenkins
         // SonarQube Analysis Stage
         // =============================
         stage('SonarQube Analysis') {
-            steps {
-                script {
-                    withSonarQubeEnv('SonarQube') {  // Must match Jenkins SonarQube name
-                        sh """
-                            mvn clean verify sonar:sonar \
-                            -Dsonar.projectKey=ecommerce-platform \
-                            -Dsonar.host.url=http://sonarqube:9000 \
-                            -Dsonar.login=${sonar-token}
-                        """
-                    }
+    steps {
+        script {
+            withSonarQubeEnv('SonarQube') {
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    sh """
+                        mvn clean verify sonar:sonar \
+                        -Dsonar.projectKey=ecommerce-platform \
+                        -Dsonar.host.url=http://localhost:9000 \
+                        -Dsonar.login=${SONAR_TOKEN}
+                    """
                 }
             }
         }
+    }
+}
+
 
         stage('Quality Gate') {
             steps {
