@@ -84,9 +84,9 @@ sudo usermod -aG docker jenkins
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    // ✅ Fixed URL: Use host.docker.internal for Mac/Windows Docker host access
+                    // Use the already running standalone SonarQube container
                     def sonarUrl = "http://host.docker.internal:9000"
-                    echo "Using SonarQube URL: ${sonarUrl}"
+                    echo "Using existing SonarQube at: ${sonarUrl}"
 
                     echo "Waiting for SonarQube to be UP..."
                     timeout(time: 2, unit: 'MINUTES') {
