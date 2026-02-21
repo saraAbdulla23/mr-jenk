@@ -16,30 +16,6 @@ services:
       - ecommerce-net
 
   # ========================
-  # SonarQube
-  # ========================
-  sonarqube:
-    image: sonarqube:community
-    container_name: sonarqube
-    ports:
-      - "9000:9000"
-    environment:
-      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
-      # JVM options
-      SONAR_JAVA_OPTS: "-Xmx1g -Xms512m -XX:+HeapDumpOnOutOfMemoryError"
-      SONAR_ES_JAVA_OPTS: "-Xmx1g -Xms512m -XX:+HeapDumpOnOutOfMemoryError"
-    volumes:
-      - sonarqube_data:/opt/sonarqube/data
-      - sonarqube_extensions:/opt/sonarqube/extensions
-    networks:
-      - ecommerce-net
-    deploy:
-      resources:
-        limits:
-          memory: 3g
-    restart: unless-stopped
-
-  # ========================
   # Discovery Service
   # ========================
   discovery-service:
@@ -131,8 +107,6 @@ services:
 # ========================
 volumes:
   mongo_data:
-  sonarqube_data:
-  sonarqube_extensions:
 
 # ========================
 # Networks
