@@ -7,6 +7,7 @@ services:
   # ========================
   mongodb:
     image: mongo:6
+    container_name: mongodb
     ports:
       - "27017:27017"
     volumes:
@@ -19,6 +20,7 @@ services:
   # ========================
   sonarqube:
     image: sonarqube:community
+    container_name: sonarqube
     ports:
       - "9000:9000"
     environment:
@@ -44,6 +46,7 @@ services:
     build:
       context: ./backend/discovery-service
     image: discovery-service:${IMAGE_TAG}
+    container_name: discovery-service
     ports:
       - "8761:8761"
     networks:
@@ -56,6 +59,7 @@ services:
     build:
       context: ./backend/api-gateway
     image: api-gateway:${IMAGE_TAG}
+    container_name: api-gateway
     ports:
       - "8087:8087"
     depends_on:
@@ -72,6 +76,7 @@ services:
     build:
       context: ./backend/user-service
     image: user-service:${IMAGE_TAG}
+    container_name: user-service
     ports:
       - "8082:8082"
     depends_on:
@@ -90,6 +95,7 @@ services:
     build:
       context: ./backend/product-service
     image: product-service:${IMAGE_TAG}
+    container_name: product-service
     ports:
       - "8085:8085"
     depends_on:
@@ -110,6 +116,7 @@ services:
     build:
       context: ./front
     image: front:${IMAGE_TAG}
+    container_name: front
     ports:
       - "4200:80"
     depends_on:
@@ -124,14 +131,8 @@ services:
 # ========================
 volumes:
   mongo_data:
-    external: true
-    name: ecommerce-ci-cd_mongo_data
   sonarqube_data:
-    external: true
-    name: ecommerce-ci-cd_sonarqube_data
   sonarqube_extensions:
-    external: true
-    name: ecommerce-ci-cd_sonarqube_extensions
 
 # ========================
 # Networks
