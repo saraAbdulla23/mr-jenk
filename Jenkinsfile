@@ -1,7 +1,6 @@
 pipeline {
     agent any
 
-    // ✅ Automatic trigger without webhook (checks every 5 minutes)
     triggers {
         pollSCM('H/5 * * * *')
     }
@@ -82,26 +81,47 @@ sudo usermod -aG docker jenkins
             }
         }
 
-        // =============================
-        // SonarQube Analysis Stage
-        // =============================
         stage('SonarQube Analysis') {
-    steps {
-        script {
-            withSonarQubeEnv('SonarQube') {
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    sh """
-                        mvn clean verify sonar:sonar \
-                        -Dsonar.projectKey=ecommerce-platform \
-                        -Dsonar.host.url=http://localhost:9000 \
-                        -Dsonar.login=${SONAR_TOKEN}
-                    """
+            steps {
+                script {
+                    // ✅ Fixed URL: Use host.docker.internal for Mac/Windows Docker host access
+                    def sonarUrl = "http://host.docker.internal:9000"
+                    echo "Using SonarQube URL: ${sonarUrl}"
+
+                    echo "Waiting for SonarQube to be UP..."
+                    timeout(time: 2, unit: 'MINUTES') {
+                        waitUntil {
+                            def response = sh(script: "curl -s ${sonarUrl}/api/system/status || true", returnStdout: true).trim()
+                            echo "SonarQube status response: ${response}"
+                            return response.contains('"UP"')
+                        }
+                    }
+
+                    echo "SonarQube is UP! Running analysis per backend module in parallel..."
+                    withSonarQubeEnv('SonarQube') {
+                        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                            def modules = ["discovery-service", "api-gateway", "user-service", "product-service"]
+                            def sonarStages = [:]
+
+                            modules.each { module ->
+                                sonarStages[module] = {
+                                    dir("backend/${module}") {
+                                        sh """
+                                            mvn clean verify sonar:sonar \
+                                            -Dsonar.projectKey=${module}-ecommerce \
+                                            -Dsonar.host.url=${sonarUrl} \
+                                            -Dsonar.login=\$SONAR_TOKEN
+                                        """
+                                    }
+                                }
+                            }
+
+                            parallel sonarStages
+                        }
+                    }
                 }
             }
         }
-    }
-}
-
 
         stage('Quality Gate') {
             steps {
