@@ -1,5 +1,6 @@
 package com.product_service.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -17,26 +18,30 @@ import java.util.Base64;
 
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true)
-@Profile("!test") // ✅ THIS IS THE KEY
+@Profile("!test") // Security disabled during tests
 public class SecurityConfig {
 
-    // 🔐 Must match the secret used by Auth Service / API Gateway
-    private static final String JWT_SECRET =
-            "KfTpBkd4/IZ8utP7ia3aZ8z7AM92lQmYJvgqxOGNR5o=";
+    /**
+     * 🔐 JWT secret injected from environment variable
+     * Comes from docker-compose -> .env -> JWT_SECRET
+     */
+    @Value("${JWT_SECRET}")
+    private String jwtSecret;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
-            // ❌ Do NOT configure CORS here — API Gateway handles it
+            // ❌ CORS handled at API Gateway
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
                 // =========================
-                // PUBLIC READ-ONLY ENDPOINTS
+                // PUBLIC READ ENDPOINTS
                 // =========================
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+
                 // =========================
-                // EVERYTHING ELSE REQUIRES AUTH
+                // EVERYTHING ELSE AUTHENTICATED
                 // =========================
                 .anyRequest().authenticated()
             )
@@ -48,17 +53,19 @@ public class SecurityConfig {
     }
 
     /**
-     * 🔑 Maps JWT "role" claim → Spring Security authorities
-     * Example:
+     * 🔑 Convert JWT "role" claim into Spring Security authorities
+     *
+     * Example token:
+     * {
      *   "role": "ROLE_SELLER"
-     * becomes:
-     *   GrantedAuthority("ROLE_SELLER")
+     * }
      */
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
+
         JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
         authoritiesConverter.setAuthoritiesClaimName("role");
-        authoritiesConverter.setAuthorityPrefix(""); // token already contains ROLE_
+        authoritiesConverter.setAuthorityPrefix(""); // roles already contain ROLE_
 
         JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();
         jwtConverter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
@@ -67,13 +74,16 @@ public class SecurityConfig {
     }
 
     /**
-     * 🔐 JWT decoder using shared HS256 secret
+     * 🔐 JWT decoder using HS256 secret key
      */
     @Bean
     public JwtDecoder jwtDecoder() {
-        byte[] keyBytes = Base64.getDecoder().decode(JWT_SECRET);
+
+        byte[] keyBytes = Base64.getDecoder().decode(jwtSecret);
         SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "HmacSHA256");
 
-        return NimbusJwtDecoder.withSecretKey(secretKey).build();
+        return NimbusJwtDecoder
+                .withSecretKey(secretKey)
+                .build();
     }
 }

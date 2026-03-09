@@ -44,6 +44,7 @@ services:
       - ecommerce-net
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+      JWT_SECRET: ${JWT_SECRET}
 
   # ========================
   # User Service
@@ -63,6 +64,7 @@ services:
     environment:
       SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/user_service_db
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+      JWT_SECRET: ${JWT_SECRET}
 
   # ========================
   # Product Service
@@ -84,11 +86,12 @@ services:
       SPRING_DATA_MONGODB_PORT: 27017
       SPRING_DATA_MONGODB_DATABASE: buy01db
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+      JWT_SECRET: ${JWT_SECRET}
 
   # ========================
   # Order Service
   # ========================
-  -service:
+  order-service:
     build:
       context: ./backend/order-service
     image: order-service:${IMAGE_TAG}
@@ -103,6 +106,7 @@ services:
     environment:
       SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/order_service_db
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+      JWT_SECRET: ${JWT_SECRET}
 
   # ========================
   # Media Service
@@ -124,6 +128,7 @@ services:
       SPRING_DATA_MONGODB_PORT: 27017
       SPRING_DATA_MONGODB_DATABASE: media_service_db
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+      JWT_SECRET: ${JWT_SECRET}
 
   # ========================
   # Frontend (Angular + Nginx)
