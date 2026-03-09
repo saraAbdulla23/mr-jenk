@@ -69,30 +69,28 @@ export class Login {
         // ✅ Save token
         this.tokenStore.saveToken(token);
 
-        // ✅ KEEP role exactly as backend sends it (ROLE_CLIENT / ROLE_SELLER)
+        // ✅ Build clean user object
         const userData = {
           userId: user.id,
           name: user.name,
           email: user.email,
-          role: user.role,
+          role: user.role, // Can be ROLE_SELLER or ROLE_CLIENT
           avatar: user.avatar || 'https://via.placeholder.com/150',
         };
 
-        // ✅ Dashboard + guards expect localStorage
-        localStorage.setItem('user', JSON.stringify(userData));
-
-        // (Optional but fine if other parts rely on it)
+        // ✅ IMPORTANT: Only use tokenStorage (it normalizes role + emits)
         this.tokenStore.saveUser(userData);
 
         this.loading = false;
 
-        // ✅ Force navigation
-        this.router.navigateByUrl('/dashboard');
+        // ✅ Navigate after saving user
+        this.router.navigate(['/dashboard']);
       },
       error: (err: any) => {
         console.error('Login error:', err);
         this.loading = false;
-        this.errorMessage = err.error?.message || 'Invalid email or password.';
+        this.errorMessage =
+          err?.error?.message || 'Invalid email or password.';
       },
     });
   }

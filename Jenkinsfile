@@ -1,10 +1,6 @@
 pipeline {
     agent any
-
-    triggers {
-        pollSCM('H/5 * * * *')
-    }
-
+    
     tools {
         maven 'maven-3'
         nodejs 'node-20'
@@ -84,7 +80,6 @@ sudo usermod -aG docker jenkins
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    // Use the already running standalone SonarQube container
                     def sonarUrl = "http://host.docker.internal:9000"
                     echo "Using existing SonarQube at: ${sonarUrl}"
 

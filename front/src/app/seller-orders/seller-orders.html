@@ -1,0 +1,122 @@
+<div class="container mt-4">
+  <h2>Seller Orders</h2>
+
+  <!-- SEARCH -->
+  <div class="card p-3 mb-3">
+    <div class="row">
+
+      <div class="col-md-6">
+        <mat-form-field appearance="outline" class="w-100">
+          <mat-label>Search Order ID</mat-label>
+          <input matInput [(ngModel)]="searchOrderId" (input)="applySearch()" placeholder="Enter order id...">
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
+      </div>
+
+      <div class="col-md-6">
+        <mat-form-field appearance="outline" class="w-100">
+          <mat-label>Search Product Name</mat-label>
+          <input matInput [(ngModel)]="searchProduct" (input)="applySearch()" placeholder="Enter product name...">
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="card p-3 mb-3">
+    <div class="row">
+
+      <div class="col-md-3">
+        <label>Status</label>
+        <select class="form-control" [(ngModel)]="status">
+          <option value="">All</option>
+          <option *ngFor="let s of statuses" [value]="s">{{s}}</option>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label>Start Date</label>
+        <input type="date" class="form-control" [(ngModel)]="startDate">
+      </div>
+
+      <div class="col-md-3">
+        <label>End Date</label>
+        <input type="date" class="form-control" [(ngModel)]="endDate">
+      </div>
+
+      <div class="col-md-3 d-flex align-items-end">
+        <button class="btn btn-primary me-2" (click)="applyFilters()">Search</button>
+        <button class="btn btn-secondary" (click)="clearFilters()">Clear</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <table class="table table-bordered table-striped">
+    <thead>
+      <tr>
+        <th>Order ID</th>
+        <th>User ID</th>
+        <th>Products</th>
+        <th>Total</th>
+        <th>Status</th>
+        <th>Payment</th>
+        <th>Address</th>
+        <th>Created</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let order of filteredOrders">
+        <td>{{order.id}}</td>
+        <td>{{order.userId}}</td>
+        <td>
+          <ul>
+            <li *ngFor="let item of order.items">
+              {{item.name}} (x{{item.quantity}}) - {{item.price | currency}}
+            </li>
+          </ul>
+        </td>
+        <td>{{order.totalAmount | currency}}</td>
+
+        <!-- Status badge -->
+        <td>
+          <span
+            class="badge"
+            [ngClass]="{
+              'bg-primary': order.status === 'CREATED',
+              'bg-success': order.status === 'DELIVERED',
+              'bg-danger': order.status === 'CANCELLED'
+            }"
+          >
+            {{order.status}}
+          </span>
+        </td>
+
+        <td>{{order.paymentMethod}}</td>
+        <td>{{order.address}}</td>
+        <td>{{order.createdAt | date:'short'}}</td>
+        <td>
+          <button *ngIf="order.status === 'CREATED'" class="btn btn-success btn-sm" (click)="markDelivered(order.id)">
+            Mark Delivered
+          </button>
+        </td>
+      </tr>
+
+      <tr *ngIf="filteredOrders.length === 0">
+        <td colspan="9" class="text-center">No orders found</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- PAGINATION -->
+  <div class="d-flex justify-content-between">
+    <button class="btn btn-outline-primary" (click)="prevPage()">Previous</button>
+    <span>Page {{page + 1}}</span>
+    <button class="btn btn-outline-primary" (click)="nextPage()">Next</button>
+  </div>
+
+</div>

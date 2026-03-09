@@ -50,6 +50,14 @@ spring:
             - Path=/api/user/**
 
         # =========================
+        # USER SERVICE – DASHBOARD (JWT REQUIRED)
+        # =========================
+        - id: user-service-dashboard
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/dashboard/**
+
+        # =========================
         # PRODUCT SERVICE – JWT REQUIRED
         # =========================
         - id: product-service
@@ -63,7 +71,27 @@ spring:
         - id: media-service
           uri: lb://MEDIA-SERVICE
           predicates:
-            - Path=/api/media/**          # Match your MediaController mapping
+            - Path=/api/media/**
+
+        # =========================
+        # ORDER SERVICE – CART ENDPOINTS
+        # =========================
+        - id: order-service-cart
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/cart/**   # covers /api/cart and all subpaths
+          filters:
+            - RewritePath=/api/cart/(?<remaining>.*), /api/cart/${remaining}
+
+        # =========================
+        # ORDER SERVICE – ORDER ENDPOINTS
+        # =========================
+        - id: order-service-orders
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/orders/**          
+          filters:
+            - RewritePath=/api/orders/(?<remaining>.*), /api/orders/${remaining}
 
 jwt:
   secret: KfTpBkd4/IZ8utP7ia3aZ8z7AM92lQmYJvgqxOGNR5o=
@@ -71,4 +99,4 @@ jwt:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: http://localhost:8761/eureka/

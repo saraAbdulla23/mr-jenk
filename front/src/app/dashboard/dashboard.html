@@ -18,12 +18,64 @@
       <button
         mat-raised-button
         color="primary"
-        *ngIf="user?.role === 'ROLE_SELLER' || user?.role === 'SELLER'"
+        *ngIf="user?.role === 'SELLER'"
         (click)="goToCreateProduct()"
       >
         Add Product
       </button>
+
+      <!-- CLIENT CART BUTTON WITH ICON & BADGE -->
+      <button
+        mat-raised-button
+        color="primary"
+        *ngIf="user?.role === 'CLIENT'"
+        (click)="goToCart()"
+        matBadge="{{ cartItemCount }}"
+        matBadgeColor="warn"
+        matBadgePosition="above after"
+        class="cart-btn"
+      >
+        <mat-icon>shopping_cart</mat-icon>
+        Cart
+      </button>
     </div>
+    <!-- SELLER DASHBOARD -->
+<button
+mat-raised-button
+color="primary"
+*ngIf="user?.role === 'SELLER'"
+(click)="goToSellerDashboard()"
+>
+Seller Dashboard
+</button>
+
+<!-- USER DASHBOARD -->
+<button
+mat-raised-button
+color="primary"
+*ngIf="user?.role === 'CLIENT'"
+(click)="goToUserDashboard()"
+>
+User Dashboard
+</button>
+  </div>
+
+  <!-- Search & Filter -->
+  <div class="product-filters">
+    <mat-form-field appearance="fill">
+      <mat-label>Search by Name</mat-label>
+      <input matInput [(ngModel)]="searchKeyword" (ngModelChange)="applyFilters()" placeholder="Enter product name">
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Min Price</mat-label>
+      <input matInput type="number" [(ngModel)]="minPrice" (ngModelChange)="applyFilters()" placeholder="0">
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Max Price</mat-label>
+      <input matInput type="number" [(ngModel)]="maxPrice" (ngModelChange)="applyFilters()" placeholder="1000">
+    </mat-form-field>
   </div>
 
   <!-- Success / Error / Loading Messages -->
@@ -40,13 +92,16 @@
   <!-- Products Grid -->
   <div class="products" *ngIf="products.length > 0">
     <mat-card
-      *ngFor="let product of products"
-      class="product-card"
-      [ngClass]="{ owner: product.userId === user?.userId }"
-    >
+  *ngFor="let product of products"
+  class="product-card"
+  [ngClass]="{ 
+    owner: product.userId === user?.userId,
+    soldOut: product.quantity === 0
+  }"
+>
       <mat-card-title>{{ product.name }}</mat-card-title>
 
-      <!-- ================= IMAGE CAROUSEL ================= -->
+      <!-- IMAGE CAROUSEL -->
       <div
         class="carousel"
         *ngIf="
@@ -86,24 +141,37 @@
         </div>
       </div>
 
+      <!-- PRODUCT DETAILS -->
       <mat-card-content>
         <p>Price: ${{ product.price }}</p>
         <p>Quantity: {{ product.quantity }}</p>
-        <p *ngIf="product.description">
-          Description: {{ product.description }}
-        </p>
+        <p *ngIf="product.description">Description: {{ product.description }}</p>
       </mat-card-content>
 
-      <mat-card-actions
-        *ngIf="product.userId === user?.userId"
-        class="action-buttons"
-      >
-        <button mat-raised-button color="accent" (click)="editProduct(product)">
-          Edit
-        </button>
-        <button mat-raised-button color="warn" (click)="deleteProduct(product)">
-          Delete
-        </button>
+      <!-- ACTION BUTTONS -->
+      <mat-card-actions class="action-buttons">
+        <!-- SELLER -->
+        <ng-container *ngIf="user?.role === 'SELLER' && product.userId === user?.userId">
+          <button mat-raised-button color="accent" (click)="editProduct(product)">
+            Edit
+          </button>
+          <button mat-raised-button color="warn" (click)="deleteProduct(product)">
+            Delete
+          </button>
+        </ng-container>
+
+        <!-- CLIENT -->
+<ng-container *ngIf="user?.role === 'CLIENT'">
+  <button
+    mat-raised-button
+    color="primary"
+    [disabled]="product.quantity === 0"
+    (click)="addToCart(product)"
+    class="add-to-cart-btn"
+  >
+    {{ product.quantity === 0 ? 'Sold Out' : 'Add to Cart' }}
+  </button>
+</ng-container>
       </mat-card-actions>
     </mat-card>
   </div>

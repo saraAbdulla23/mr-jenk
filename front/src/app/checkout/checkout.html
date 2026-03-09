@@ -1,0 +1,153 @@
+<div class="checkout-wizard" *ngIf="cart">
+
+    <!-- Progress Bar -->
+    <div class="progress-bar">
+      <div class="progress" [style.width.%]="(currentStep - 1) / 2 * 100"></div>
+    </div>
+  
+    <!-- Step Indicators -->
+    <div class="steps">
+      <span [class.active]="currentStep===1">1. Address</span>
+      <span [class.active]="currentStep===2">2. Review</span>
+      <span [class.active]="currentStep===3">3. Confirm</span>
+    </div>
+  
+    <!-- Step 1: Address -->
+    <div *ngIf="currentStep === 1" class="step step-address">
+      <h2>Shipping Address</h2>
+      <form [formGroup]="addressForm" (ngSubmit)="nextStep()">
+  
+        <label>Street:</label>
+        <input formControlName="street" type="text" placeholder="123 Main St">
+        <div *ngIf="addressForm.get('street')?.invalid && addressForm.get('street')?.touched" class="error">
+          Street is required
+        </div>
+  
+        <label>City:</label>
+        <input formControlName="city" type="text" placeholder="City">
+        <div *ngIf="addressForm.get('city')?.invalid && addressForm.get('city')?.touched" class="error">
+          City is required
+        </div>
+  
+        <label>ZIP:</label>
+        <input formControlName="zip" type="text" placeholder="ZIP">
+        <div *ngIf="addressForm.get('zip')?.invalid && addressForm.get('zip')?.touched" class="error">
+          ZIP is required
+        </div>
+  
+        <label>Country:</label>
+        <select formControlName="country">
+          <option value="" disabled>Select Country</option>
+          <option *ngFor="let c of countriesList" [value]="c.name" [selected]="c.name === addressForm.value.country">
+            {{c.flag}} {{c.name}}
+          </option>
+        </select>
+        <div *ngIf="addressForm.get('country')?.invalid && addressForm.get('country')?.touched" class="error">
+          Country is required
+        </div>
+  
+        <div class="buttons">
+          <button type="submit" mat-raised-button color="primary" [disabled]="addressForm.invalid">
+            Next
+          </button>
+        </div>
+      </form>
+    </div>
+  
+    <!-- Step 2: Review -->
+    <div *ngIf="currentStep === 2" class="step step-review">
+      <h2>Review Your Order</h2>
+      <table class="review-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of cart.items">
+            <td>{{item.name}}</td>
+            <td>{{item.quantity}}</td>
+            <td>${{item.price}}</td>
+            <td>${{item.subtotal}}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3"><strong>Total</strong></td>
+            <td><strong>${{cart.total}}</strong></td>
+          </tr>
+        </tfoot>
+      </table>
+  
+      <div class="buttons">
+        <button mat-button color="warn" (click)="prevStep()">Back</button>
+        <button mat-raised-button color="primary" (click)="nextStep()">Confirm</button>
+      </div>
+    </div>
+  
+    <!-- Step 3: Confirm + Pay on Delivery -->
+    <div *ngIf="currentStep === 3" class="step step-confirm">
+      <h2>Confirm Your Order</h2>
+  
+      <!-- Shipping Address -->
+      <div class="confirm-address">
+        <h3>Shipping Address</h3>
+        <p>{{addressForm.value.street}}, {{addressForm.value.city}}, {{addressForm.value.zip}}, {{addressForm.value.country}}</p>
+      </div>
+  
+      <!-- Order Summary -->
+      <div class="confirm-summary">
+        <h3>Order Summary</h3>
+        <table class="review-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of cart.items">
+              <td>{{item.name}}</td>
+              <td>{{item.quantity}}</td>
+              <td>${{item.price}}</td>
+              <td>${{item.subtotal}}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3"><strong>Total</strong></td>
+              <td><strong>${{cart.total}}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+  
+      <!-- Pay on Delivery -->
+      <div class="pay-on-delivery">
+        <h3>💳 Payment Method</h3>
+        <p>All orders are paid <strong>on delivery</strong>. No card details required. Please prepare the exact amount or pay via your preferred method upon delivery.</p>
+        <button mat-raised-button color="accent" (click)="confirmOrder()" [disabled]="loading">
+          {{loading ? 'Processing...' : 'Confirm & Pay on Delivery'}}
+        </button>
+      </div>
+  
+      <!-- Feedback -->
+      <div *ngIf="orderSuccess" class="success">
+        ✅ Order placed successfully!
+      </div>
+      <div *ngIf="errorMessage" class="error">
+        {{errorMessage}}
+      </div>
+  
+      <!-- Back Button -->
+      <div class="buttons">
+        <button mat-button color="warn" (click)="prevStep()">Back</button>
+      </div>
+    </div>
+  
+  </div>

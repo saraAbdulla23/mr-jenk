@@ -1,0 +1,59 @@
+<div class="dashboard" *ngIf="dashboard as d">
+
+    <h1 class="title">User Analytics</h1>
+  
+    <!-- KPI CARDS -->
+    <div class="cards">
+  
+      <div class="card total-spent">
+        <h3>Total Spent</h3>
+        <p>{{ d.totalSpent | currency }}</p>
+      </div>
+  
+      <div class="card products-bought">
+        <h3>Products Bought</h3>
+        <p>{{ d.mostBoughtProducts.length }}</p>
+      </div>
+  
+      <div class="card top-category">
+        <h3>Top Category</h3>
+        <p>
+          {{ d.topCategories.length ? d.topCategories[0].name : 'N/A' }}
+        </p>
+      </div>
+  
+    </div>
+  
+    <!-- CHART -->
+    <div class="chart-container">
+      <h2>Most Bought Products</h2>
+      <canvas
+        baseChart
+        [data]="{
+          labels: chartLabels,
+          datasets: [{ data: chartData, label: 'Quantity Bought' }]
+        }"
+        [type]="'bar'">
+      </canvas>
+    </div>
+  
+    <!-- TABLE -->
+    <div class="table-section">
+      <h2>Top Products</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Quantity Bought</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of d.mostBoughtProducts">
+            <td>{{ productNames[p.key] || p.key }}</td>
+            <td>{{ p.value }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  
+  </div>

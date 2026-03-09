@@ -1,0 +1,42 @@
+<div class="cart-container" *ngIf="cart">
+  <h2>Your Cart</h2>
+
+  <div *ngIf="cart.items.length === 0" class="empty-cart">
+    Your cart is empty.
+  </div>
+
+  <div class="cart-items" *ngIf="cart.items.length > 0">
+    <div class="cart-item" *ngFor="let item of cart.items">
+      <p class="item-name">{{ item.name }}</p>
+      
+      <p>
+        Quantity:
+        <input
+  type="number"
+  [value]="item.quantity"
+  min="1"
+  [max]="getProductStock(item.productId)"
+  (change)="updateQuantity(item.productId, $any($event.target).value)"
+/>
+      </p>
+
+      <p>Price: ${{ item.price }}</p>
+      <p>Subtotal: <strong>${{ item.subtotal }}</strong></p>
+
+      <button mat-button color="warn" (click)="removeItem(item.productId)">
+        Remove
+      </button>
+
+      <hr />
+    </div>
+  </div>
+
+  <div class="cart-summary" *ngIf="cart.items.length > 0">
+    <h3>Total: ${{ cart.totalAmount }}</h3>
+
+    <!-- ✅ Checkout button now navigates to wizard -->
+    <button mat-raised-button color="primary" (click)="checkout()">
+      Proceed to Checkout
+    </button>
+  </div>
+</div>

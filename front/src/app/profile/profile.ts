@@ -30,17 +30,16 @@ import { DeleteConfirmDialog } from './delete-confirm-dialog.component';
   styleUrls: ['./profile.scss'],
 })
 export class Profile implements OnInit {
-  user!: User;
+  user!: any;
 
-  // Editable fields ONLY (role intentionally excluded)
   editUser: {
     name?: string;
     email?: string;
     password?: string;
+    address?: string;
   } = {};
 
   editMode = false;
-
   errorMessage = '';
   successMessage = '';
 
@@ -65,22 +64,40 @@ export class Profile implements OnInit {
     this.loadUser();
   }
 
+  /** Normalize backend role format 'ROLE_XXX' → 'XXX' */
+  private normalizeRole(role: string): string {
+    if (role?.startsWith('ROLE_')) {
+      return role.replace('ROLE_', '');
+    }
+    return role;
+  }
+
+  /** Convert backend user (id) → frontend user (userId) */
+  private mapUser(u: any): any {
+    return {
+      userId: u.id, // ✅ Always use userId in frontend
+      name: u.name,
+      email: u.email,
+      role: this.normalizeRole(u.role),
+      avatar: u.avatar,
+      address: u.address || '', // ✅ include address
+    };
+  }
+
   private loadUser(): void {
     this.userService.getCurrentUser().subscribe({
       next: (u: User) => {
-        // Normalize role for UI display only
-        if (u.role?.startsWith('ROLE_')) {
-          u.role = u.role.replace('ROLE_', '') as 'CLIENT' | 'SELLER';
-        }
+        this.user = this.mapUser(u);
 
-        this.user = u;
         this.editUser = {
-          name: u.name,
-          email: u.email,
+          name: this.user.name,
+          email: this.user.email,
           password: '',
+          address: this.user.address, // ✅ include address
         };
 
-        localStorage.setItem('user', JSON.stringify(u));
+        // ✅ Save consistent user shape
+        this.tokenStore.saveUser(this.user);
       },
       error: (err) => {
         console.error('Failed to load profile', err);
@@ -95,6 +112,7 @@ export class Profile implements OnInit {
       name: this.user.name,
       email: this.user.email,
       password: '',
+      address: this.user.address, // ✅ include address
     };
     this.successMessage = '';
     this.errorMessage = '';
@@ -113,28 +131,26 @@ export class Profile implements OnInit {
       email?: string;
       password?: string;
       avatar?: string;
+      address?: string;
     } = {
       name: this.editUser.name?.trim(),
       email: this.editUser.email?.trim(),
-      avatar: this.user.avatar, // persist current avatar
+      avatar: this.user.avatar,
+      address: this.editUser.address?.trim(), // ✅ save address
     };
 
     if (this.editUser.password?.trim()) {
       payload.password = this.editUser.password;
     }
 
-    // ⚠️ role is NEVER sent
     this.userService.updateProfile(payload).subscribe({
       next: (updated: User) => {
-        this.user = updated;
-        localStorage.setItem('user', JSON.stringify(updated));
-      
+        this.user = this.mapUser(updated);
+        this.tokenStore.saveUser(this.user);
         this.router.navigate(['/dashboard'], {
-          state: {
-            message: 'Your profile is updated successfully',
-          },
+          state: { message: 'Your profile is updated successfully' },
         });
-      },      
+      },
       error: (err) => {
         console.error('Profile update failed', err);
         this.errorMessage = err?.error?.message || 'Profile update failed';
@@ -171,8 +187,7 @@ export class Profile implements OnInit {
     this.router.navigate(['/login']);
   }
 
-  // ===== Avatar Upload =====
-
+  // ================= AVATAR =================
   onAvatarSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
@@ -191,14 +206,13 @@ export class Profile implements OnInit {
 
     this.mediaService.uploadAvatar(this.selectedAvatar).subscribe({
       next: (res) => {
-        // Preview immediately
         this.user.avatar = res.avatarUrl;
 
-        // Persist avatar via profile update
         this.userService.updateProfile({ avatar: res.avatarUrl }).subscribe({
           next: (updated) => {
-            this.user = updated;
-            localStorage.setItem('user', JSON.stringify(updated));
+            this.user = this.mapUser(updated);
+            this.tokenStore.saveUser(this.user);
+
             this.successMessage = 'Avatar uploaded successfully!';
             this.selectedAvatar = null;
             this.selectedAvatarPreview = null;
@@ -213,5 +227,13 @@ export class Profile implements OnInit {
         this.errorMessage = err?.error?.message || 'Failed to upload avatar';
       },
     });
+  }
+
+  goToOrders(): void {
+    if (this.user.role === 'SELLER') {
+      this.router.navigate(['/seller/orders']);
+    } else {
+      this.router.navigate(['/orders']);
+    }
   }
 }

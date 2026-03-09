@@ -1,0 +1,1 @@
+import enLocale from 'i18n-iso-countries/langs/en.json';

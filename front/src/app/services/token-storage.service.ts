@@ -1,5 +1,6 @@
 import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { BehaviorSubject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -8,9 +9,16 @@ export class TokenStorageService {
   private readonly TOKEN_KEY = 'auth-token';
   private readonly USER_KEY = 'user';
 
-  constructor(@Inject(PLATFORM_ID) private platformId: Object) {}
+  private userSubject = new BehaviorSubject<any>(null);
+  user$ = this.userSubject.asObservable();
 
-  // ===== Helper =====
+  constructor(@Inject(PLATFORM_ID) private platformId: Object) {
+    if (this.isBrowser()) {
+      const user = this.getUserFromStorage();
+      if (user) this.userSubject.next(user);
+    }
+  }
+
   private isBrowser(): boolean {
     return isPlatformBrowser(this.platformId);
   }
@@ -28,39 +36,48 @@ export class TokenStorageService {
   }
 
   removeToken(): void {
-    if (this.isBrowser()) {
-      localStorage.removeItem(this.TOKEN_KEY);
-    }
+    if (this.isBrowser()) localStorage.removeItem(this.TOKEN_KEY);
   }
 
   // ===== User Methods =====
   saveUser(user: any): void {
     if (this.isBrowser() && user) {
       try {
+        // Normalize role
+        if (user.role?.startsWith('ROLE_')) {
+          user.role = user.role.replace('ROLE_', '');
+        }
         localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+        this.userSubject.next(user); // 🔹 emit live update
       } catch (e) {
         console.error('Failed to save user to localStorage', e);
       }
     }
   }
 
-  getUser(): any | null {
+  private getUserFromStorage(): any | null {
     if (!this.isBrowser()) return null;
     const user = localStorage.getItem(this.USER_KEY);
     if (!user) return null;
-
     try {
-      return JSON.parse(user);
+      const parsed = JSON.parse(user);
+      if (parsed.role?.startsWith('ROLE_')) {
+        parsed.role = parsed.role.replace('ROLE_', '');
+      }
+      return parsed;
     } catch (e) {
       console.error('Failed to parse user from localStorage', e);
       return null;
     }
   }
 
+  getUser(): any | null {
+    return this.userSubject.value;
+  }
+
   removeUser(): void {
-    if (this.isBrowser()) {
-      localStorage.removeItem(this.USER_KEY);
-    }
+    if (this.isBrowser()) localStorage.removeItem(this.USER_KEY);
+    this.userSubject.next(null);
   }
 
   // ===== Clear / Logout =====

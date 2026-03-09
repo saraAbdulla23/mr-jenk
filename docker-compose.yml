@@ -86,6 +86,46 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
 
   # ========================
+  # Order Service
+  # ========================
+  -service:
+    build:
+      context: ./backend/order-service
+    image: order-service:${IMAGE_TAG}
+    container_name: order-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - discovery-service
+      - mongodb
+    networks:
+      - ecommerce-net
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/order_service_db
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+
+  # ========================
+  # Media Service
+  # ========================
+  media-service:
+    build:
+      context: ./backend/media-service
+    image: media-service:${IMAGE_TAG}
+    container_name: media-service
+    ports:
+      - "8089:8089"
+    depends_on:
+      - discovery-service
+      - mongodb
+    networks:
+      - ecommerce-net
+    environment:
+      SPRING_DATA_MONGODB_HOST: mongodb
+      SPRING_DATA_MONGODB_PORT: 27017
+      SPRING_DATA_MONGODB_DATABASE: media_service_db
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+
+  # ========================
   # Frontend (Angular + Nginx)
   # ========================
   front:

@@ -4,5 +4,6 @@ export interface User {
     email: string;
     role: 'CLIENT' | 'SELLER';
     avatar?: string;
+    address?: string;
   }
   

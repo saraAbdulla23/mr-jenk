@@ -42,6 +42,7 @@
         <p><strong>Name:</strong> {{ user.name }}</p>
         <p><strong>Email:</strong> {{ user.email }}</p>
         <p><strong>Role:</strong> {{ user.role }}</p>
+        <p *ngIf="user.address"><strong>Shipping Address:</strong> {{ user.address }}</p>
       </div>
 
       <!-- ================= EDIT MODE ================= -->
@@ -59,6 +60,16 @@
         <mat-form-field appearance="fill">
           <mat-label>New Password</mat-label>
           <input matInput type="password" [(ngModel)]="editUser.password" name="password" />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+          <mat-label>Shipping Address</mat-label>
+          <input
+            matInput
+            [(ngModel)]="editUser.address"
+            name="address"
+            placeholder="Enter shipping address"
+          />
         </mat-form-field>
 
         <!-- ================= FORM ACTIONS ================= -->
@@ -82,6 +93,9 @@
         Delete Account
       </button>
       <button mat-raised-button (click)="goBack()">Back</button>
+      <button mat-raised-button color="accent" (click)="goToOrders()">
+        {{ user?.role === 'SELLER' ? 'Received Orders' : 'My Orders' }}
+      </button>
       <button mat-raised-button color="warn" (click)="logout()">
         Logout
       </button>

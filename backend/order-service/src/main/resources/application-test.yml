@@ -1,0 +1,105 @@
+# =====================================================
+# Global Test Configuration (ALL microservices)
+# =====================================================
+spring:
+  main:
+    allow-bean-definition-overriding: true
+
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: false
+    hibernate:
+      ddl-auto: create-drop
+
+  # ---------------------------------------------------
+  # Embedded Kafka for tests
+  # ---------------------------------------------------
+  kafka:
+    embedded:
+      enabled: true
+      partitions: 1
+    consumer:
+      group-id: test-group
+      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+  # ---------------------------------------------------
+  # Embedded MongoDB (Flapdoodle)
+  # IMPORTANT: NO URI, NO HOST, NO PORT
+  # ---------------------------------------------------
+  data:
+    mongodb:
+      database: test
+
+# -----------------------------------------------------
+# Disable Eureka
+# -----------------------------------------------------
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+
+# -----------------------------------------------------
+# Random server port
+# -----------------------------------------------------
+server:
+  port: 0
+
+# -----------------------------------------------------
+# Logging
+# -----------------------------------------------------
+logging:
+  level:
+    root: INFO
+    org.mongodb.driver: WARN
+    org.apache.kafka: WARN
+
+# =====================================================
+# User Service
+# =====================================================
+user-service:
+  spring:
+    datasource:
+      url: jdbc:h2:mem:userdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    jpa:
+      hibernate:
+        ddl-auto: create-drop
+    data:
+      mongodb:
+        database: user_service_test
+
+# =====================================================
+# Product Service
+# =====================================================
+product-service:
+  spring:
+    datasource:
+      url: jdbc:h2:mem:productdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    jpa:
+      hibernate:
+        ddl-auto: create-drop
+    data:
+      mongodb:
+        database: product_service_test
+
+# =====================================================
+# Media Service
+# =====================================================
+media-service:
+  spring:
+    datasource:
+      url: jdbc:h2:mem:mediadb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    jpa:
+      hibernate:
+        ddl-auto: create-drop
+    data:
+      mongodb:
+        database: media_service_test

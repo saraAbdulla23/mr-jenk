@@ -1,0 +1,121 @@
+<!-- ================= ORDER LIST ================= -->
+<div *ngIf="!selectedOrder">
+    <mat-card>
+      <mat-card-title>My Orders</mat-card-title>
+  
+      <!-- Filters -->
+      <div class="filters">
+        <mat-form-field>
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="selectedStatus" (selectionChange)="filterOrders()">
+            <mat-option value="">All</mat-option>
+            <mat-option value="CREATED">Created</mat-option>
+            <mat-option value="CANCELLED">Cancelled</mat-option>
+            <mat-option value="DELIVERED">Delivered</mat-option>
+          </mat-select>
+        </mat-form-field>
+  
+        <mat-form-field>
+          <mat-label>Date</mat-label>
+          <input matInput type="date" [(ngModel)]="selectedDate" (change)="filterOrders()">
+        </mat-form-field>
+      </div>
+  
+      <!-- Orders List -->
+      <mat-card-content>
+        <div *ngFor="let order of filteredOrders" class="order-item">
+          <p><strong>Order ID:</strong> {{ order.id }}</p>
+          <p>
+            <strong>Status:</strong>
+            <span
+              class="status-badge"
+              [ngClass]="{
+                'status-created': order.status === 'CREATED',
+                'status-cancelled': order.status === 'CANCELLED',
+                'status-delivered': order.status === 'DELIVERED'
+              }"
+            >
+              {{ order.status }}
+            </span>
+          </p>
+          <p><strong>Total:</strong> {{ order.totalAmount | currency }}</p>
+          <p><strong>Date:</strong> {{ order.createdAt | date:'medium' }}</p>
+          <button mat-raised-button color="primary" (click)="viewOrder(order)">View Details</button>
+          <hr>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+  
+  <!-- ================= ORDER DETAILS ================= -->
+  <div *ngIf="selectedOrder">
+    <mat-card>
+      <mat-card-title>Order Details</mat-card-title>
+      <mat-card-content>
+        <p>
+          <strong>Status:</strong>
+          <span
+            class="status-badge"
+            [ngClass]="{
+              'status-created': selectedOrder.status === 'CREATED',
+              'status-cancelled': selectedOrder.status === 'CANCELLED',
+              'status-delivered': selectedOrder.status === 'DELIVERED'
+            }"
+          >
+            {{ selectedOrder.status }}
+          </span>
+        </p>
+        <p><strong>Total Amount:</strong> {{ selectedOrder.totalAmount | currency }}</p>
+        <p><strong>Shipping Address:</strong> {{ selectedOrder.address }}</p>
+        <p><strong>Payment Method:</strong> {{ selectedOrder.paymentMethod }}</p>
+  
+        <h3>Items</h3>
+        <ul>
+          <li *ngFor="let item of selectedOrder.items">
+            {{ item.name }} - {{ item.quantity }} × {{ item.price | currency }}
+          </li>
+        </ul>
+  
+        <h3>Status Timeline</h3>
+        <div class="status-timeline">
+          <div
+            *ngFor="let status of getStatusTimeline(); let i = index"
+            class="timeline-step"
+            [ngClass]="{
+              'completed': isStepCompleted(status),
+              'current': selectedOrder.status === status
+            }"
+          >
+            <div class="circle">{{ i + 1 }}</div>
+            <div class="label">{{ status }}</div>
+            <div *ngIf="i < getStatusTimeline().length - 1" class="line"></div>
+          </div>
+        </div>
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-raised-button color="primary" (click)="backToList()">
+          Back to Orders
+        </button>
+      
+        <!-- Cancel button -->
+        <button
+          *ngIf="selectedOrder?.status === 'CREATED'"
+          mat-raised-button
+          color="warn"
+          (click)="cancelSelectedOrder()"
+        >
+          Cancel Order
+        </button>
+      
+        <!-- Redo button -->
+        <button
+          *ngIf="selectedOrder?.status === 'CANCELLED' || selectedOrder?.status === 'DELIVERED'"
+          mat-raised-button
+          color="accent"
+          (click)="redoSelectedOrder()"
+        >
+          Redo Order
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>

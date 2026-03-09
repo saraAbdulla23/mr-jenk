@@ -1,0 +1,66 @@
+<div class="dashboard" *ngIf="dashboard as d">
+
+    <h1 class="title">Seller Analytics</h1>
+  
+    <!-- KPI CARDS -->
+    <div class="cards">
+  
+      <div class="card revenue">
+        <h3>Total Revenue</h3>
+        <p>{{ d.totalRevenue | currency }}</p>
+      </div>
+  
+      <div class="card units">
+        <h3>Units Sold</h3>
+        <p>{{ d.unitsSold }}</p>
+      </div>
+  
+      <div class="card products">
+        <h3>Products Sold</h3>
+        <p>{{ d.bestSellingProducts.length }}</p>
+      </div>
+  
+    </div>
+  
+  
+    <!-- CHART -->
+    <div class="chart-container">
+  
+      <h2>Best Selling Products</h2>
+  
+      <canvas
+        baseChart
+        [data]="{
+          labels: chartLabels,
+          datasets: [{ data: chartData, label: 'Units Sold' }]
+        }"
+        [type]="'bar'">
+      </canvas>
+  
+    </div>
+  
+  
+    <!-- TABLE -->
+    <div class="table-section">
+  
+      <h2>Top Products</h2>
+  
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Units Sold</th>
+          </tr>
+        </thead>
+  
+        <tbody>
+          <tr *ngFor="let p of d.bestSellingProducts">
+            <td>{{ productNames[p.key] || p.key }}</td>
+            <td>{{ p.value }}</td>
+          </tr>
+        </tbody>
+      </table>
+  
+    </div>
+  
+  </div>

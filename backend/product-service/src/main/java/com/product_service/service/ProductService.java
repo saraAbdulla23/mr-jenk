@@ -114,4 +114,30 @@ public class ProductService {
     public Product getProductById(String productId) {
         return repository.findById(productId).orElse(null);
     }
+
+    // for updating the quantity after order
+    public Product decreaseStock(String productId, int quantity) {
+        // Fetch existing product
+        Product product = repository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Product not found: " + productId));
+    
+        // Validate stock
+        if (product.getQuantity() < quantity) {
+            throw new RuntimeException("Not enough stock for product " + productId);
+        }
+    
+        // Decrease quantity
+        product.setQuantity(product.getQuantity() - quantity);
+    
+        // Save the same product instance — DO NOT create a new Product object
+        return repository.save(product);
+    }
+    public Product increaseStock(String productId, int quantity) {
+        Product product = repository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Product not found: " + productId));
+    
+        product.setQuantity(product.getQuantity() + quantity);
+    
+        return repository.save(product);
+    }
 }
