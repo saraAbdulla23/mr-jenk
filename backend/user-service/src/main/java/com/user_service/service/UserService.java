@@ -1,105 +1,66 @@
 package com.user_service.service;
 
-import com.user_service.dto.UpdateUserReq;
-import com.user_service.exception.ResourceAlreadyExistsException;
-import com.user_service.exception.ResourceNotFoundException;
 import com.user_service.model.Role;
 import com.user_service.model.User;
 import com.user_service.repository.UserRepository;
-
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder; // Inject PasswordEncoder
 
-    /**
-     * Save a new user (used for registration).
-     */
-    public User save(User user) {
-        userRepository.findByEmail(user.getEmail()).ifPresent(existing -> {
-            throw new ResourceAlreadyExistsException("A user with this email already exists.");
-        });
-
-        if (!user.getPassword().startsWith("$2a$")) {
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
-        }
-
-        if (user.getRole() == null) {
-            throw new IllegalArgumentException("User role must be specified.");
-        }
-
-        return userRepository.save(user);
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
     }
 
-    /**
-     * Update the current user's own profile (SAFE VERSION).
-     */
-    public User updateProfile(UpdateUserReq request, User currentUser) {
-
-        User existing = userRepository.findById(currentUser.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
-
-        // Email uniqueness check (exclude self)
-        if (request.getEmail() != null &&
-            !request.getEmail().equals(existing.getEmail()) &&
-            userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new ResourceAlreadyExistsException("Email is already in use.");
-        }
-
-        existing.setName(request.getName());
-        existing.setEmail(request.getEmail());
-
-        // Optional password update
-        if (request.getPassword() != null && !request.getPassword().isBlank()) {
-            existing.setPassword(passwordEncoder.encode(request.getPassword()));
-        }
-
-        // Role CANNOT be changed
-        existing.setRole(currentUser.getRole());
-
-        // Avatar only for SELLER
-        if (existing.getRole() == Role.ROLE_SELLER) {
-            existing.setAvatar(request.getAvatar());
-        }
-
-        return userRepository.save(existing);
+    public User getUserById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
     }
 
-    /**
-     * Delete the current user's own account.
-     */
-    public void deleteById(String id, User currentUser) {
-        if (!id.equals(currentUser.getId())) {
-            throw new AccessDeniedException("Access denied: you can only delete your own account.");
+    @Transactional
+    public User updateUser(Long id, User updatedUser) {
+        User existingUser = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+        existingUser.setName(updatedUser.getName());
+        existingUser.setEmail(updatedUser.getEmail());
+        existingUser.setRole(updatedUser.getRole()); // Admin can change roles
+
+        // If password is provided, encode it before saving
+        if (updatedUser.getPassword() != null && !updatedUser.getPassword().isEmpty()) {
+            existingUser.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
         }
 
+        return userRepository.save(existingUser);
+    }
+
+    @Transactional
+    public void deleteUser(Long id) {
         if (!userRepository.existsById(id)) {
-            throw new ResourceNotFoundException("User not found with ID: " + id);
+            throw new RuntimeException("User not found with id: " + id);
         }
-
         userRepository.deleteById(id);
     }
 
-    /**
-     * Find a user by email.
-     */
-    public Optional<User> findByEmail(String email) {
-        return userRepository.findByEmail(email);
-    }
+    /** Admin creates a user */
+    @Transactional
+    public User createUser(User newUser) {
+        if (userRepository.findByEmail(newUser.getEmail()).isPresent()) {
+            throw new RuntimeException("Email already exists");
+        }
 
-    /**
-     * Find a user by ID.
-     */
-    public Optional<User> findById(String id) {
-        return userRepository.findById(id);
+        // Encode password like registration
+        newUser.setPassword(passwordEncoder.encode(newUser.getPassword()));
+
+        // Allow admin to set any role
+        return userRepository.save(newUser);
     }
 }

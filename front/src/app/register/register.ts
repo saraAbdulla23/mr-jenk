@@ -11,7 +11,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 
 import { AuthService } from '../services/auth.service';
-import { TokenStorageService } from '../services/token-storage.service';
 
 @Component({
   selector: 'app-register',
@@ -34,19 +33,18 @@ export class Register {
   loading = false;
   errorMessage = '';
 
-  roles: Array<'CLIENT' | 'SELLER'> = ['CLIENT', 'SELLER'];
+  roles: Array<'USER' | 'ADMIN'> = ['USER', 'ADMIN'];
 
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private tokenStore: TokenStorageService,
     private router: Router
   ) {
     this.form = this.fb.group({
       name: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
-      role: ['', Validators.required],
+      role: ['USER', Validators.required], // ✅ default role
     });
   }
 
@@ -58,63 +56,29 @@ export class Register {
 
     const { name, email, password, role } = this.form.value;
 
-    if (!this.roles.includes(role)) {
-      this.errorMessage = 'Role must be either CLIENT or SELLER.';
-      return;
-    }
-
-    const payload = { name, email, password, role };
-
     this.loading = true;
     this.errorMessage = '';
 
-    // 1️⃣ REGISTER
-    this.authService.register(payload).subscribe({
+    // ✅ Register → then login (AuthService will store token/user)
+    this.authService.register({ name, email, password, role }).subscribe({
       next: () => {
-        // 2️⃣ AUTO LOGIN AFTER REGISTER
         this.authService.login({ email, password }).subscribe({
-          next: (res: any) => {
-            console.log('Auto-login response:', res);
-
-            const token = res?.token;
-            const user = res?.user;
-
-            if (!token || !user) {
-              this.loading = false;
-              this.errorMessage = 'Auto-login failed. Please login manually.';
-              return;
-            }
-
-            // Save token
-            this.tokenStore.saveToken(token);
-
-            // Normalize role
-            const normalizedRole = user.role.replace(/^ROLE_/, '');
-
-            // Save user
-            this.tokenStore.saveUser({
-              userId: user.id,
-              name: user.name,
-              email: user.email,
-              role: normalizedRole,
-              avatar: user.avatar || 'https://via.placeholder.com/150',
-            });
-
+          next: () => {
             this.loading = false;
-            this.router.navigate(['/dashboard']);
+            this.router.navigate(['/dashboard']); // ✅ already logged in
           },
-          error: (err: any) => {
+          error: (err) => {
             console.error('Auto-login error:', err);
             this.loading = false;
-            this.errorMessage = 'Registration successful. Please login.';
+            this.errorMessage = 'Registered successfully. Please login.';
             this.router.navigate(['/login']);
           },
         });
       },
-      error: (err: any) => {
+      error: (err) => {
         console.error('Register error:', err);
         this.loading = false;
-        this.errorMessage = err.error?.message || 'Registration failed.';
+        this.errorMessage = err?.error?.message || 'Registration failed.';
       },
     });
   }

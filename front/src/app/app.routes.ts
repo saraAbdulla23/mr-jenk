@@ -3,11 +3,12 @@ import { Login } from './login/login';
 import { Dashboard } from './dashboard/dashboard';
 import { Register } from './register/register';
 import { Profile } from './profile/profile';
+import { AdminUsers } from './admin-users/admin-users';
+import { ManageTravel } from './manage-travel/manage-travel';
 import { AuthGuard } from './guards/auth.guard';
-import { CreateProductComponent } from './create-product/create-product.component';
-import { EditProduct } from './edit-product/edit-product';
 
 export const routes: Routes = [
+  // ✅ Redirect root to login
   {
     path: '',
     redirectTo: 'login',
@@ -29,17 +30,21 @@ export const routes: Routes = [
   {
     path: 'profile',
     component: Profile,
-  },
-  {
-    path: 'create-product',
-    component: CreateProductComponent,
     canActivate: [AuthGuard],
-    data: { role: 'ROLE_SELLER' },
   },
+
   {
-    path: 'edit-product/:id',
-    component: EditProduct,
+    path: 'admin-users',
+    component: AdminUsers,
     canActivate: [AuthGuard],
-    data: { role: 'ROLE_SELLER' },
+    data: { role: 'ADMIN' },
   },
+
+  {
+    path: 'manage-travel',
+    component: ManageTravel,
+    canActivate: [AuthGuard],
+    data: { role: 'ADMIN' },
+  },
+  
 ];

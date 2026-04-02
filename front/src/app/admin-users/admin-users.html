@@ -1,0 +1,82 @@
+<div class="admin-users">
+    <h2>Users Management</h2>
+  
+    <div *ngIf="errorMessage" class="error">{{ errorMessage }}</div>
+  
+    <!-- SIMPLE USERS TABLE -->
+    <div class="users-table" *ngIf="users.length">
+      <table class="simple-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let user of users">
+            <td>{{ user.name }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ user.role }}</td>
+            <td>
+              <button mat-raised-button color="primary" (click)="selectUser(user)">Edit</button>
+              <button mat-raised-button color="warn" (click)="deleteUser(user)">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  
+    <!-- USER FORM -->
+    <mat-card class="user-form">
+      <h3>{{ selectedUser ? 'Edit User' : 'Add New User' }}</h3>
+      <form [formGroup]="form" (ngSubmit)="saveUser()">
+  
+        <!-- NAME -->
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Name</mat-label>
+          <input matInput formControlName="name" />
+          <mat-error *ngIf="form.get('name')?.hasError('required')">
+            Name is required
+          </mat-error>
+        </mat-form-field>
+  
+        <!-- EMAIL -->
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" formControlName="email" />
+          <mat-error *ngIf="form.get('email')?.hasError('required')">
+            Email is required
+          </mat-error>
+          <mat-error *ngIf="form.get('email')?.hasError('email')">
+            Enter a valid email
+          </mat-error>
+        </mat-form-field>
+  
+        <!-- ROLE -->
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Role</mat-label>
+          <mat-select formControlName="role">
+            <mat-option value="USER">User</mat-option>
+            <mat-option value="ADMIN">Admin</mat-option>
+          </mat-select>
+        </mat-form-field>
+  
+        <!-- PASSWORD (only for new users) -->
+        <mat-form-field appearance="fill" class="full-width" *ngIf="!selectedUser">
+          <mat-label>Password</mat-label>
+          <input matInput type="password" formControlName="password" />
+        </mat-form-field>
+  
+        <!-- ACTION BUTTONS -->
+        <div class="form-actions">
+          <button mat-raised-button color="primary" type="submit">
+            {{ selectedUser ? 'Update' : 'Create' }}
+          </button>
+          <button mat-button type="button" (click)="clearSelection()">Cancel</button>
+        </div>
+  
+      </form>
+    </mat-card>
+  </div>

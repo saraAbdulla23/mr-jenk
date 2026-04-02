@@ -1,0 +1,88 @@
+<div class="admin-travels">
+    <h2>Travel Management</h2>
+  
+    <div *ngIf="errorMessage" class="error">{{ errorMessage }}</div>
+  
+    <!-- TRAVELS TABLE -->
+    <div class="travels-table" *ngIf="travels.length">
+      <table class="simple-table">
+        <thead>
+          <tr>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Duration</th>
+            <th>Accommodation</th>
+            <th>Transportation</th>
+            <th>Destinations</th>
+            <th>Activities</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let travel of travels">
+            <td>{{ travel.startDate }}</td>
+            <td>{{ travel.endDate }}</td>
+            <td>{{ travel.duration }}</td>
+            <td>{{ travel.accommodation }}</td>
+            <td>{{ travel.transportation }}</td>
+            <td>{{ travel.destinations.join(', ') }}</td>
+            <td>{{ travel.activities.join(', ') }}</td>
+            <td>
+              <button mat-raised-button color="primary" (click)="selectTravel(travel)">Edit</button>
+              <button mat-raised-button color="warn" (click)="deleteTravel(travel)">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  
+    <!-- TRAVEL FORM -->
+    <mat-card class="travel-form">
+      <h3>{{ selectedTravel ? 'Edit Travel' : 'Add New Travel' }}</h3>
+      <form [formGroup]="form" (ngSubmit)="saveTravel()">
+  
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Start Date</mat-label>
+          <input matInput type="date" formControlName="startDate" />
+        </mat-form-field>
+  
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>End Date</mat-label>
+          <input matInput type="date" formControlName="endDate" />
+        </mat-form-field>
+  
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Duration (days)</mat-label>
+          <input matInput type="number" formControlName="duration" />
+        </mat-form-field>
+  
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Accommodation</mat-label>
+          <input matInput formControlName="accommodation" />
+        </mat-form-field>
+  
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Transportation</mat-label>
+          <input matInput formControlName="transportation" />
+        </mat-form-field>
+  
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Destinations (comma-separated)</mat-label>
+          <input matInput formControlName="destinations" />
+        </mat-form-field>
+  
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Activities (comma-separated)</mat-label>
+          <input matInput formControlName="activities" />
+        </mat-form-field>
+  
+        <div class="form-actions">
+          <button mat-raised-button color="primary" type="submit">
+            {{ selectedTravel ? 'Update' : 'Create' }}
+          </button>
+          <button mat-button type="button" (click)="clearSelection()">Cancel</button>
+        </div>
+  
+      </form>
+    </mat-card>
+  </div>

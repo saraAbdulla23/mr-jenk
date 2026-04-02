@@ -1,4 +1,4 @@
-<form [formGroup]="form" (ngSubmit)="submit()">
+<form *ngIf="!otpRequired" [formGroup]="form" (ngSubmit)="submitLogin()">
   <mat-form-field appearance="outline">
     <mat-label>Email</mat-label>
     <input matInput formControlName="email" placeholder="Email" />
@@ -26,4 +26,21 @@
   <button mat-stroked-button color="accent" type="button" (click)="goToRegister()">
     Register
   </button>
+</form>
+
+<!-- OTP form -->
+<form *ngIf="otpRequired" [formGroup]="otpForm" (ngSubmit)="submitOtp()">
+  <mat-form-field appearance="outline">
+    <mat-label>Enter OTP</mat-label>
+    <input matInput formControlName="otp" placeholder="6-digit code" />
+    <mat-error *ngIf="otpForm.get('otp')?.invalid && otpForm.get('otp')?.touched">
+      Valid 6-digit OTP is required
+    </mat-error>
+  </mat-form-field>
+
+  <button mat-raised-button color="primary" [disabled]="otpForm.invalid || loading">
+    {{ loading ? 'Verifying...' : 'Verify OTP' }}
+  </button>
+
+  <p class="error-message" *ngIf="errorMessage">{{ errorMessage }}</p>
 </form>

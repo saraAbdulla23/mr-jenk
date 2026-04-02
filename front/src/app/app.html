@@ -1,3 +1,46 @@
-<div class ="app-container"> 
+<div class="app-container">
+
+  <!-- ✅ Reactive navbar -->
+  <nav class="top-nav" *ngIf="(user$ | async) as user">
+    <ul>
+      <li>
+        <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+      </li>
+
+      <li>
+        <a routerLink="/profile" routerLinkActive="active">Profile</a>
+      </li>
+
+      <!-- ✅ ADMIN ONLY (reactive now) -->
+      <li *ngIf="user.role === 'ADMIN'">
+        <a routerLink="/admin-users" routerLinkActive="active">
+          Manage Users
+        </a>
+      </li>
+
+      <li *ngIf="user.role === 'ADMIN'">
+        <a routerLink="/manage-travel" routerLinkActive="active">
+          Manage Travel
+        </a>
+      </li>
+
+      <li *ngIf="user.role === 'ADMIN'">
+        <a routerLink="/admin-users" routerLinkActive="active">
+          Manage Payment
+        </a>
+      </li>
+
+      <!-- <li *ngIf="user.role === 'USER'">
+        <a routerLink="/my-movies" routerLinkActive="active">
+          Share Recommendations
+        </a>
+      </li> -->
+
+      <li>
+        <a (click)="logout()">Logout</a>
+      </li>
+    </ul>
+  </nav>
+
   <router-outlet></router-outlet>
 </div>

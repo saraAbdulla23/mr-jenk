@@ -1,1 +1,7 @@
-random.md
+random.txt
+backend/user-service/.env
+backend/travel-service/.env
+.env
+query/
+README.md
+backend/media-service

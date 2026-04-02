@@ -16,10 +16,10 @@ export const serverRoutes: ServerRoute[] = [
   },
 
   // 🔥 Dynamic route → CLIENT render (NO prerender)
-  {
-    path: 'edit-product/:id',
-    renderMode: RenderMode.Client,
-  },
+  // {
+  //   path: 'edit-product/:id',
+  //   renderMode: RenderMode.Client,
+  // },
 
   // Fallback → SSR
   {

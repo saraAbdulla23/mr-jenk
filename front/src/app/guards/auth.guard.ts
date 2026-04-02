@@ -26,8 +26,8 @@ export class AuthGuard implements CanActivate {
     console.log('AuthGuard → token:', token);
     console.log('AuthGuard → user:', user);
 
-    // ⛔ Not logged in
-    if (!token || !user) {
+    // ⛔ Not authenticated at all
+    if (!token) {
       this.router.navigate(['/login']);
       return false;
     }
@@ -35,7 +35,7 @@ export class AuthGuard implements CanActivate {
     // 🔐 Role-based access
     if (route.data?.['role']) {
       const requiredRole = route.data['role'].toUpperCase();
-      const userRole = (user.role || '').toUpperCase();
+      const userRole = (user?.role || '').toUpperCase();
 
       if (userRole !== requiredRole) {
         console.warn(

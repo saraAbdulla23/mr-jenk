@@ -17,3 +17,4 @@ public class AuthReq {
     @NotBlank(message = "Password is required")
     private String password;
 }
+

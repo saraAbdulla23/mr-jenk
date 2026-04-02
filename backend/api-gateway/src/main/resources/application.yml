@@ -39,7 +39,17 @@ spring:
         - id: user-service-auth
           uri: lb://USER-SERVICE
           predicates:
-            - Path=/auth/**
+            - Path=/auth, /auth/**
+
+        # =========================
+        # USER SERVICE – USERS API (JWT REQUIRED)
+        # =========================
+        - id: user-service-users
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/users, /api/users/** 
+          filters:
+            - RewritePath=/api/users(?<remaining>/?.*), /users${remaining}
 
         # =========================
         # USER SERVICE – USER PROFILE (JWT REQUIRED)
@@ -47,23 +57,37 @@ spring:
         - id: user-service-user
           uri: lb://USER-SERVICE
           predicates:
-            - Path=/api/user/**
+            - Path=/api/user, /api/user/** 
+          filters:
+            - RewritePath=/api/user(?<remaining>/?.*), /users${remaining}
 
         # =========================
-        # PRODUCT SERVICE – JWT REQUIRED
+        # USER SERVICE – DASHBOARD (JWT REQUIRED)
         # =========================
-        - id: product-service
-          uri: lb://PRODUCT-SERVICE
+        - id: user-service-dashboard
+          uri: lb://USER-SERVICE
           predicates:
-            - Path=/api/products/**
+            - Path=/api/dashboard, /api/dashboard/** 
+          filters:
+            - RewritePath=/api/dashboard(?<remaining>/?.*), /dashboard${remaining}
 
         # =========================
-        # MEDIA SERVICE – JWT REQUIRED
+        # TRAVEL SERVICE
+        # =========================
+        - id: travel-service
+          uri: lb://TRAVEL-SERVICE
+          predicates:
+            - Path=/api/travels/**
+
+        # =========================
+        # MEDIA SERVICE (JWT REQUIRED)
         # =========================
         - id: media-service
           uri: lb://MEDIA-SERVICE
           predicates:
-            - Path=/api/media/**          # Match your MediaController mapping
+            - Path=/api/media, /api/media/** 
+          filters:
+            - RewritePath=/api/media(?<remaining>/?.*), /media${remaining}
 
 jwt:
   secret: KfTpBkd4/IZ8utP7ia3aZ8z7AM92lQmYJvgqxOGNR5o=
@@ -71,4 +95,4 @@ jwt:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: http://localhost:8761/eureka/

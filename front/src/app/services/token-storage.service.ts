@@ -1,5 +1,7 @@
 import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { BehaviorSubject } from 'rxjs';
+import { User } from './user.model';
 
 @Injectable({
   providedIn: 'root',
@@ -8,14 +10,22 @@ export class TokenStorageService {
   private readonly TOKEN_KEY = 'auth-token';
   private readonly USER_KEY = 'user';
 
-  constructor(@Inject(PLATFORM_ID) private platformId: Object) {}
+  // Observable to track current user across app
+  private userSubject = new BehaviorSubject<User | null>(null);
+  user$ = this.userSubject.asObservable();
 
-  // ===== Helper =====
+  constructor(@Inject(PLATFORM_ID) private platformId: Object) {
+    if (this.isBrowser()) {
+      const user = this.getUserFromStorage();
+      if (user) this.userSubject.next(user);
+    }
+  }
+
   private isBrowser(): boolean {
     return isPlatformBrowser(this.platformId);
   }
 
-  // ===== Token Methods =====
+  // ===== Token Management =====
   saveToken(token: string): void {
     if (this.isBrowser()) {
       localStorage.setItem(this.TOKEN_KEY, token);
@@ -28,53 +38,45 @@ export class TokenStorageService {
   }
 
   removeToken(): void {
+    if (this.isBrowser()) localStorage.removeItem(this.TOKEN_KEY);
+  }
+
+  // ===== User Management =====
+  saveUser(user: User): void {
     if (this.isBrowser()) {
-      localStorage.removeItem(this.TOKEN_KEY);
+      localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+      this.userSubject.next(user);
     }
   }
 
-  // ===== User Methods =====
-  saveUser(user: any): void {
-    if (this.isBrowser() && user) {
-      try {
-        localStorage.setItem(this.USER_KEY, JSON.stringify(user));
-      } catch (e) {
-        console.error('Failed to save user to localStorage', e);
-      }
-    }
-  }
-
-  getUser(): any | null {
+  private getUserFromStorage(): User | null {
     if (!this.isBrowser()) return null;
     const user = localStorage.getItem(this.USER_KEY);
-    if (!user) return null;
+    return user ? JSON.parse(user) : null;
+  }
 
-    try {
-      return JSON.parse(user);
-    } catch (e) {
-      console.error('Failed to parse user from localStorage', e);
-      return null;
-    }
+  getUser(): User | null {
+    return this.userSubject.value;
   }
 
   removeUser(): void {
-    if (this.isBrowser()) {
-      localStorage.removeItem(this.USER_KEY);
-    }
+    if (this.isBrowser()) localStorage.removeItem(this.USER_KEY);
+    this.userSubject.next(null);
   }
 
-  // ===== Clear / Logout =====
-  clear(): void {
+  // ===== Auth Helpers =====
+  logout(): void {
     this.removeToken();
     this.removeUser();
   }
 
-  logout(): void {
-    this.clear();
-  }
-
-  // ===== Utility =====
   isLoggedIn(): boolean {
     return !!this.getToken() && !!this.getUser();
+  }
+
+  // ===== Optional: Clear OTP state =====
+  clearOtp(): void {
+    // In case you store temporary OTP-related data
+    // localStorage.removeItem('otp-email'); // if implemented
   }
 }

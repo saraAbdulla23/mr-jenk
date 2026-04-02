@@ -1,211 +1,195 @@
-.dashboard {
+/* ================= PAGE CONTAINER ================= */
+body {
+  background-color: #F5F5F5;
+  font-family: 'Poppins', sans-serif;
+  margin: 0;
+  padding: 0;
+  color: #333;
+}
+
+.container {
   max-width: 1200px;
-  margin: 2rem auto;
-  padding: 1rem;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+}
+
+/* ================= HEADING ================= */
+h2 {
+  font-size: 2.8rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  color: #4A90E2;
+}
+
+/* ================= SEARCH BAR ================= */
+.search-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2rem;
+
+  .search-input {
+    height: 45px;
+    border-radius: 12px;
+    border: 1px solid #ccc;
+    padding: 0.75rem 1rem;
+    background-color: #fff;
+    color: #333;
+    font-size: 1rem;
+    transition: all 0.3s;
+
+    &:focus {
+      outline: none;
+      border-color: #4A90E2;
+      box-shadow: 0 0 10px rgba(74,144,226,0.4);
+    }
+
+    &::placeholder {
+      color: #aaa;
+    }
+  }
+
+  .search-btn {
+    height: 45px;
+    font-weight: 600;
+    background-color: #4A90E2;
+    border-color: #4A90E2;
+    color: #fff;
+    border-radius: 12px;
+    transition: all 0.3s;
+
+    &:hover {
+      background-color: #357ABD;
+      border-color: #357ABD;
+      transform: translateY(-2px);
+    }
+  }
+}
+
+/* ================= MOVIE CARDS GRID ================= */
+.row.g-3 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* Ensure 3 cards per row and equal height */
+.col-md-4 {
+  flex: 1 1 calc(33.333% - 1rem); /* 3 cards per row with gap */
+  display: flex;
+}
+
+/* ================= MOVIE CARD ================= */
+.movie-card {
+  flex: 1; /* Fill the column height */
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-  font-family: 'Roboto', sans-serif;
-  color: #333;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 
-  /* Top Bar */
-  .dashboard-topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #e0e0e0;
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  }
 
-    .dashboard-title {
-      h1 {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #3f51b5;
-        margin: 0;
-      }
+  img.card-img-top {
+    height: 250px;
+    object-fit: cover;
+    width: 100%;
+    transition: transform 0.3s ease;
 
-      p {
-        font-size: 1rem;
-        color: #555;
-        margin: 0.25rem 0 0 0;
-      }
-    }
-
-    .dashboard-actions {
-      display: flex;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-
-      button {
-        height: 40px;
-        font-weight: 500;
-      }
+    &:hover {
+      transform: scale(1.05);
     }
   }
 
-  /* Status messages */
-  .success-alert {
-    text-align: center;
-    background-color: #e8f5e9;
-    color: #2e7d32;
-    padding: 0.8rem 1.2rem;
-    border-radius: 8px;
-    font-weight: 500;
-    margin-bottom: 1rem;
-  }
-
-  div[ng-reflect-ng-if="loading"],
-  div[ng-reflect-ng-if="error"],
-  div[ng-reflect-ng-if="products.length === 0"] {
-    text-align: center;
-    font-size: 1rem;
-    color: #666;
-    margin: 1rem 0;
-  }
-
-  /* Products grid */
-  .products {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.5rem;
-  }
-
-  /* Product card */
-  .product-card {
+  .card-body {
+    flex: 1; /* Occupy remaining space */
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     padding: 1rem;
-    border-radius: 12px;
-    background-color: #ffffff;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-align: center;
+    min-height: 3rem; /* Consistent height for titles */
+    color: #333;
+  }
+
+  button {
+    width: 100%;
+    margin-top: 0.5rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    border: 1px solid #4A90E2;
+    color: #4A90E2;
+    background-color: transparent;
+    transition: all 0.3s;
 
     &:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.1);
-    }
-
-    &.owner {
-      border: 2px solid #3f51b5;
-    }
-
-    mat-card-title {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-      color: #3f51b5;
-    }
-
-    mat-card-content {
-      p {
-        margin: 0.25rem 0;
-        font-size: 0.95rem;
-        color: #444;
-
-        strong {
-          font-weight: 600;
-        }
-      }
-    }
-
-    mat-card-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.5rem;
-      margin-top: 1rem;
-    }
-
-    /* ================= MANUAL CAROUSEL ================= */
-    .carousel {
-      position: relative;
-      overflow: hidden;
-      border-radius: 8px;
-      margin-bottom: 1rem;
-
-      .carousel-inner {
-        display: flex;
-        transform: translateX(0); /* always start at first image */
-        transition: transform 0.3s ease-in-out;
-
-        .carousel-image {
-          width: 100%;
-          height: 200px;
-          object-fit: cover;
-          border-radius: 8px;
-        }
-      }
-
-      .prev-btn,
-      .next-btn {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        background-color: rgba(0, 0, 0, 0.4);
-        color: white;
-        border: none;
-        border-radius: 50%;
-        width: 30px;
-        height: 30px;
-        font-size: 18px;
-        cursor: pointer;
-        outline: none;
-        z-index: 2;
-      }
-
-      .prev-btn {
-        left: 10px;
-      }
-
-      .next-btn {
-        right: 10px;
-      }
-
-      /* Dots indicators */
-      .dots {
-        position: absolute;
-        bottom: 10px;
-        width: 100%;
-        text-align: center;
-
-        span {
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          margin: 0 4px;
-          background-color: rgba(255, 255, 255, 0.7);
-          border-radius: 50%;
-          cursor: pointer;
-
-          &.active {
-            background-color: #3f51b5;
-          }
-        }
-      }
+      background-color: #4A90E2;
+      color: #fff;
+      transform: translateY(-2px);
     }
   }
+}
 
-  /* Responsive tweaks */
-  @media (max-width: 768px) {
-    .dashboard-topbar {
-      flex-direction: column;
-      align-items: flex-start;
+/* ================= LOADING SPINNER ================= */
+.spinner-border {
+  width: 3rem;
+  height: 3rem;
+  border-width: 0.25rem;
+}
 
-      .dashboard-actions {
-        justify-content: flex-start;
-        width: 100%;
-      }
-    }
+/* ================= EMPTY STATE ================= */
+.text-muted {
+  font-size: 1.1rem;
+  color: #888;
+  text-align: center;
+  margin-top: 1rem;
+}
 
-    .products {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-
-      .product-card {
-        width: 250px;
-      }
-    }
+/* ================= RESPONSIVE ================= */
+@media (max-width: 992px) {
+  .col-md-4 {
+    flex: 1 1 calc(50% - 1rem); /* 2 cards per row on tablets */
   }
+}
+
+@media (max-width: 767px) {
+  .search-bar {
+    flex-direction: column;
+  }
+
+  .col-md-4 {
+    flex: 1 1 100%; /* 1 card per row on mobile */
+  }
+
+  .movie-card img.card-img-top {
+    height: 200px;
+  }
+
+  .card-title {
+    font-size: 1rem;
+  }
+}
+/* Highlight recommended movies */
+.movie-card.recommended {
+  border: 2px solid #FFD700; /* gold border */
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+}
+
+.movie-card.recommended .card-title::after {
+  content: '★ Recommended';
+  display: block;
+  font-size: 0.8rem;
+  color: #FFD700;
+  text-align: center;
+  margin-top: 0.25rem;
 }

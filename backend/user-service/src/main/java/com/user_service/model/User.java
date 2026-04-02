@@ -1,45 +1,37 @@
 package com.user_service.model;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
+import lombok.*;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "users")
+@Entity
+@Table(name = "users")
 public class User {
 
     @Id
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @NotBlank(message = "Name is required")
     private String name;
 
     @Email(message = "Invalid email address")
     @NotBlank(message = "Email is required")
+    @Column(unique = true)
     private String email;
 
     @NotBlank(message = "Password is required")
+    @Size(min = 8, message = "Password must be at least 8 characters long")
+    @Pattern(
+        regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&]).+$",
+        message = "Password must contain uppercase, lowercase, number, and special character"
+    )
     private String password;
 
     @NotNull(message = "Role is required")
+    @Enumerated(EnumType.STRING)
     private Role role;
-
-    // Optional avatar URL or path
-    private String avatar;
-
-    @Override
-    public String toString() {
-        return "User{" +
-               "id='" + id + '\'' +
-               ", name='" + name + '\'' +
-               ", email='" + email + '\'' +
-               ", role='" + role + '\'' +
-               ", avatar='" + avatar + '\'' +
-               '}';
-    }
 }

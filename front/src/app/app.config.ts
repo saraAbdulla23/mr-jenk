@@ -6,29 +6,38 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 
 import { routes } from './app.routes';
 
-// (Optional placeholder – I'll give you a real one when we add JWT)
+/**
+ * Optional HTTP interceptor placeholder for JWT or other auth headers.
+ * Replace this with a real interceptor when implementing auth.
+ */
 export function authInterceptor(req: any, next: any) {
   return next(req);
 }
 
+/**
+ * Angular application configuration.
+ * Includes routing, HTTP client, animations, and hydration support.
+ */
 export const appConfig: ApplicationConfig = {
   providers: [
+    // Global error handling
     provideBrowserGlobalErrorListeners(),
 
+    // Zone.js change detection with event coalescing
     provideZoneChangeDetection({ eventCoalescing: true }),
 
     // Routing
     provideRouter(routes),
 
-    // Enable HttpClient for backend calls
+    // HTTP client with optional interceptors
     provideHttpClient(
-      withInterceptors([authInterceptor])   // ← interceptor placeholder
+      withInterceptors([authInterceptor])
     ),
 
-    // Required for Angular Material
+    // Required for Angular Material animations
     provideAnimations(),
 
-    // Hydration support
+    // Hydration support for server-side rendering
     provideClientHydration(withEventReplay()),
   ]
 };

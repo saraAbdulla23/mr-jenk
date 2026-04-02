@@ -65,6 +65,7 @@ public class SecurityConfig {
                 // Public: login/register
                 .requestMatchers("/auth/login").permitAll()
                 .requestMatchers("/auth/register").permitAll()
+                .requestMatchers("/auth/verify-otp").permitAll()  
                 // Everything else requires authentication
                 .anyRequest().authenticated()
             )

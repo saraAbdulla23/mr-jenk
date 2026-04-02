@@ -20,7 +20,6 @@ public class UpdateUserReq {
     @Size(min = 8, message = "Password must be at least 8 characters")
     private String password; // optional
 
-    private String avatar; // optional (SELLER only)
 
     private Role role; // optional, service layer enforces role
 
@@ -35,7 +34,6 @@ public class UpdateUserReq {
         if (this.password != null && !this.password.isBlank()) {
             user.setPassword(this.password);
         }
-        user.setAvatar(this.avatar);
         user.setRole(this.role); // service layer ensures role doesn't change if needed
         return user;
     }
