@@ -8,7 +8,6 @@ pipeline {
 
     environment {
         VERSION        = "v${env.BUILD_NUMBER}"
-        STABLE_TAG     = "stable"
         IMAGE_TAG      = "${VERSION}"
 
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
@@ -23,9 +22,11 @@ pipeline {
         USER_SERVICE_PORT    = "8082"
         TRAVEL_SERVICE_PORT  = "8085"
 
-        # DB Ports (optional checks)
         POSTGRES_PORT = "5432"
         NEO4J_HTTP    = "7474"
+
+        BRANCH_NAME = "master"
+        REPO_URL   = "https://github.com/saraAbdulla23/mr-jenk.git" // <-- replace with your repo
     }
 
     options {
@@ -45,8 +46,10 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo "Building branch: ${env.BRANCH_NAME}"
-                checkout scm
+                script {
+                    echo "Cloning branch ${env.BRANCH_NAME} from ${env.REPO_URL}"
+                    sh "git clone --branch ${env.BRANCH_NAME} ${env.REPO_URL} ."
+                }
             }
         }
 
@@ -66,39 +69,22 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 script {
-
                     def sonarUrl = "http://host.docker.internal:9000"
-
                     echo "Waiting for SonarQube..."
-
                     timeout(time: 2, unit: 'MINUTES') {
                         waitUntil {
-                            def response = sh(
-                                script: "curl -s ${sonarUrl}/api/system/status || true",
-                                returnStdout: true
-                            ).trim()
+                            def response = sh(script: "curl -s ${sonarUrl}/api/system/status || true", returnStdout: true).trim()
                             return response.contains('"UP"')
                         }
                     }
 
                     withSonarQubeEnv('SonarQube') {
                         withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-
-                            def modules = [
-                                "discovery-service",
-                                "api-gateway",
-                                "user-service",
-                                "travel-service"
-                            ]
-
+                            def modules = ["discovery-service", "api-gateway", "user-service", "travel-service"]
                             def sonarStages = [:]
-
                             modules.each { module ->
-
                                 sonarStages[module] = {
-
                                     dir("backend/${module}") {
-
                                         sh """
                                         mvn clean verify sonar:sonar \
                                         -Dsonar.projectKey=${module}-travel-app \
@@ -109,7 +95,6 @@ pipeline {
                                     }
                                 }
                             }
-
                             parallel sonarStages
                         }
                     }
@@ -148,15 +133,9 @@ pipeline {
         }
 
         stage('Deploy & Verify') {
-            when {
-                branch 'master'
-            }
-
             steps {
                 script {
-
                     echo "Deploying ${VERSION}"
-
                     withEnv(["IMAGE_TAG=${VERSION}"]) {
                         sh 'docker compose up -d'
                     }
@@ -164,11 +143,9 @@ pipeline {
                     echo "Waiting for services..."
                     sleep 25
 
-                    // 🔍 Infrastructure checks
                     checkService("PostgreSQL", "http://localhost:${POSTGRES_PORT}", false)
                     checkService("Neo4j Browser", "http://localhost:${NEO4J_HTTP}", false)
 
-                    // 🔍 Core services
                     checkService("Frontend", "http://localhost:${FRONTEND_PORT}")
                     checkService("API Gateway", "http://localhost:${API_GATEWAY_PORT}/actuator/health")
                     checkService("Discovery Service", "http://localhost:${DISCOVERY_PORT}/actuator/health")
@@ -182,7 +159,6 @@ pipeline {
     }
 
     post {
-
         always {
             junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
             cleanWs()
@@ -191,36 +167,20 @@ pipeline {
         success {
             mail to: "${env.NOTIFY_EMAIL}",
                  subject: "Build SUCCESS - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                 body: """
-Build successful!
-
-Branch: ${env.BRANCH_NAME}
-Version: ${env.VERSION}
-
-${env.BUILD_URL}
-"""
+                 body: """Build successful!\n\nBranch: ${env.BRANCH_NAME}\nVersion: ${env.VERSION}\n\n${env.BUILD_URL}"""
         }
 
         failure {
             mail to: "${env.NOTIFY_EMAIL}",
                  subject: "Build FAILED - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                 body: """
-Build failed!
-
-Branch: ${env.BRANCH_NAME}
-
-${env.BUILD_URL}
-"""
+                 body: """Build failed!\n\nBranch: ${env.BRANCH_NAME}\n\n${env.BUILD_URL}"""
         }
     }
 }
 
 def buildBackend(String path) {
-
     dir(path) {
-
         sh 'mkdir -p ${MVN_LOCAL_REPO}'
-
         sh """
         mvn clean test package -B \
         -Dmaven.repo.local=${env.MVN_LOCAL_REPO}
@@ -229,12 +189,9 @@ def buildBackend(String path) {
 }
 
 def checkService(String name, String url, boolean strict = true) {
-
     sh """
     echo "Checking ${name}..."
-
     for i in {1..10}; do
-
         if curl -s ${strict ? '-f' : ''} ${url} > /dev/null; then
             echo "${name} is reachable"
             break
@@ -242,10 +199,8 @@ def checkService(String name, String url, boolean strict = true) {
             echo "Waiting for ${name}..."
             sleep 5
         fi
-
         if [ \$i -eq 10 ]; then
             echo "${name} failed!"
-
             if [ "${strict}" = "true" ]; then
                 exit 1
             fi
