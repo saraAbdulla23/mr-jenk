@@ -1,22 +1,18 @@
 package com.travel_service;
 
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
 @SpringBootApplication
-@EnableDiscoveryClient
-public class TravelServiceApplication {
+public class TravelServiceApplication implements CommandLineRunner {
 
     public static void main(String[] args) {
         SpringApplication.run(TravelServiceApplication.class, args);
-
-        // Call the simple function
-        printHello();
     }
 
-    // Simple function to print "Hello"
-    public static void printHello() {
-        System.out.println("Hello");
+    @Override
+    public void run(String... args) {
+        System.out.println("Hello from Travel Service");
     }
 }
