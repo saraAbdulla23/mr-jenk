@@ -142,7 +142,45 @@ services:
       # Mail
       SPRING_MAIL_USERNAME: ${MAIL_USERNAME}
       SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
-  
+
+  # =========================
+  # Payment Service
+  # =========================
+  payment-service:
+    build:
+      context: ./backend/payment-service
+      dockerfile: Dockerfile
+    image: payment-service:${IMAGE_TAG}
+    container_name: payment-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      - discovery-service
+      - neo4j
+      - postgres
+    networks:
+      - ecommerce-net
+    environment:
+      # Neo4j
+      SPRING_NEO4J_URI: bolt://neo4j:7687
+      SPRING_NEO4J_AUTHENTICATION_USERNAME: ${NEO4J_USERNAME}
+      SPRING_NEO4J_AUTHENTICATION_PASSWORD: ${NEO4J_PASSWORD}
+
+      # PostgreSQL
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Eureka
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+
+      # Mail
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME}
+      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
+
   # ========================
   # Frontend (Angular + Nginx)
   # ========================
@@ -152,7 +190,7 @@ services:
     image: front:${IMAGE_TAG}
     container_name: front
     ports:
-      - "4200:80"  # <-- host port 4200 mapped to container port 80
+      - "4200:80"
     depends_on:
       - api-gateway
     networks:
