@@ -1,0 +1,71 @@
+<div class="manage-payments">
+    <h2>Payments Management</h2>
+  
+    <div *ngIf="errorMessage" class="error">{{ errorMessage }}</div>
+  
+    <!-- PAYMENTS TABLE -->
+    <div class="payments-table" *ngIf="payments.length">
+      <table class="simple-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let payment of payments">
+            <td>{{ payment.type }}</td>
+            <td>{{ payment.status }}</td>
+            <td>
+              <button mat-raised-button color="primary" (click)="selectPayment(payment)">Edit</button>
+              <button mat-raised-button color="warn" (click)="deletePayment(payment)">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  
+    <!-- PAYMENT FORM -->
+    <mat-card class="payment-form">
+      <h3>{{ selectedPayment ? 'Edit Payment' : 'Add New Payment' }}</h3>
+      <form [formGroup]="form" (ngSubmit)="savePayment()">
+  
+        <!-- TYPE -->
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Type</mat-label>
+          <input matInput formControlName="type" />
+          <mat-error *ngIf="form.get('type')?.hasError('required')">
+            Type is required
+          </mat-error>
+        </mat-form-field>
+  
+        <!-- STATUS DROPDOWN -->
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Status</mat-label>
+          <mat-select formControlName="status">
+            <mat-option *ngFor="let s of statusOptions" [value]="s">{{ s }}</mat-option>
+          </mat-select>
+          <mat-error *ngIf="form.get('status')?.hasError('required')">
+            Status is required
+          </mat-error>
+        </mat-form-field>
+  
+        <!-- ACTION BUTTONS -->
+        <div class="form-actions">
+          <button mat-raised-button color="primary" type="submit">
+            {{ selectedPayment ? 'Update' : 'Create' }}
+          </button>
+          <button mat-button type="button" (click)="clearSelection()">Cancel</button>
+        </div>
+  
+      </form>
+    </mat-card>
+    <!-- PAYPAL TEST BUTTON -->
+<div class="paypal-test" style="margin-top: 20px;">
+    <h3>Test PayPal Payment</h3>
+    <button mat-raised-button color="accent" (click)="payWithPaypal()">
+      Pay $10 with PayPal
+    </button>
+  </div>
+  </div>
