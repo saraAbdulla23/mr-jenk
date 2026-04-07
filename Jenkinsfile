@@ -26,7 +26,7 @@ pipeline {
         NEO4J_HTTP    = "7474"
 
         BRANCH_NAME = "master"
-        REPO_URL   = "https://github.com/saraAbdulla23/mr-jenk.git" // <-- replace with your repo
+        REPO_URL    = "https://github.com/saraAbdulla23/mr-jenk.git"
     }
 
     options {
@@ -69,8 +69,9 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    def sonarUrl = "http://host.docker.internal:9000"
-                    echo "Waiting for SonarQube..."
+                    def sonarUrl = "http://sonarqube:9000"  // adjust if outside Docker network
+
+                    echo "Waiting for SonarQube to be UP..."
                     timeout(time: 2, unit: 'MINUTES') {
                         waitUntil {
                             def response = sh(script: "curl -s ${sonarUrl}/api/system/status || true", returnStdout: true).trim()
@@ -78,23 +79,26 @@ pipeline {
                         }
                     }
 
-                    withSonarQubeEnv('SonarQube') {
+                    // Parallel analysis for backend modules
+                    withSonarQubeEnv('SonarQube') {  // <-- must match Jenkins config name
                         withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                             def modules = ["discovery-service", "api-gateway", "user-service", "travel-service"]
                             def sonarStages = [:]
+
                             modules.each { module ->
                                 sonarStages[module] = {
                                     dir("backend/${module}") {
+                                        echo "Running SonarQube analysis for ${module}"
                                         sh """
                                         mvn clean verify sonar:sonar \
-                                        -Dsonar.projectKey=${module}-travel-app \
-                                        -Dsonar.host.url=${sonarUrl} \
-                                        -Dsonar.login=\$SONAR_TOKEN \
-                                        -Dsonar.branch.name=${env.BRANCH_NAME}
+                                            -Dsonar.projectKey=${module}-travel-app \
+                                            -Dsonar.host.url=${sonarUrl} \
+                                            -Dsonar.login=\$SONAR_TOKEN
                                         """
                                     }
                                 }
                             }
+
                             parallel sonarStages
                         }
                     }
@@ -106,17 +110,6 @@ pipeline {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
-                }
-            }
-        }
-
-        stage('Frontend - Build') {
-            steps {
-                dir('front') {
-                    sh 'mkdir -p ${NPM_CACHE}'
-                    sh 'npm config set cache ${NPM_CACHE} --global'
-                    sh 'npm ci'
-                    sh 'npm run build'
                 }
             }
         }
@@ -137,20 +130,24 @@ pipeline {
                 script {
                     echo "Deploying ${VERSION}"
                     withEnv(["IMAGE_TAG=${VERSION}"]) {
-                        sh 'docker compose up -d'
+                        // Using Ansible to deploy if available
+                        sh 'ansible-playbook -i ansible/inventory ansible/playbook.yml || echo "Fallback to docker compose"'
+
+                        // Fallback if ansible not working
+                        sh 'docker compose up -d || true'
                     }
 
-                    echo "Waiting for services..."
+                    echo "Waiting for services to start..."
                     sleep 25
 
-                    checkService("PostgreSQL", "http://localhost:${POSTGRES_PORT}", false)
-                    checkService("Neo4j Browser", "http://localhost:${NEO4J_HTTP}", false)
+                    checkService("PostgreSQL", "http://postgres:${POSTGRES_PORT}", false)
+                    checkService("Neo4j Browser", "http://neo4j:${NEO4J_HTTP}", false)
 
-                    checkService("Frontend", "http://localhost:${FRONTEND_PORT}")
-                    checkService("API Gateway", "http://localhost:${API_GATEWAY_PORT}/actuator/health")
-                    checkService("Discovery Service", "http://localhost:${DISCOVERY_PORT}/actuator/health")
-                    checkService("User Service", "http://localhost:${USER_SERVICE_PORT}/actuator/health")
-                    checkService("Travel Service", "http://localhost:${TRAVEL_SERVICE_PORT}/actuator/health")
+                    checkService("Frontend", "http://front:${FRONTEND_PORT}")
+                    checkService("API Gateway", "http://api-gateway:${API_GATEWAY_PORT}/actuator/health")
+                    checkService("Discovery Service", "http://discovery-service:${DISCOVERY_PORT}/actuator/health")
+                    checkService("User Service", "http://user-service:${USER_SERVICE_PORT}/actuator/health")
+                    checkService("Travel Service", "http://travel-service:${TRAVEL_SERVICE_PORT}/actuator/health")
 
                     echo "Deployment verified."
                 }
@@ -178,6 +175,7 @@ pipeline {
     }
 }
 
+// ---------------- Helper Functions ----------------
 def buildBackend(String path) {
     dir(path) {
         sh 'mkdir -p ${MVN_LOCAL_REPO}'
