@@ -11,12 +11,10 @@ pipeline {
         IMAGE_TAG      = "${VERSION}"
 
         MVN_LOCAL_REPO = "${WORKSPACE}/.m2/repository"
-        NPM_CACHE      = "${WORKSPACE}/.npm"
         CI             = "true"
 
         NOTIFY_EMAIL   = "sarakhalaf2312@gmail.com"
 
-        FRONTEND_PORT        = "4200"
         API_GATEWAY_PORT     = "8087"
         DISCOVERY_PORT       = "8761"
         USER_SERVICE_PORT    = "8082"
@@ -69,7 +67,7 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    def sonarUrl = "http://sonarqube:9000"  // adjust if outside Docker network
+                    def sonarUrl = "http://sonarqube:9000"
 
                     echo "Waiting for SonarQube to be UP..."
                     timeout(time: 2, unit: 'MINUTES') {
@@ -79,8 +77,7 @@ pipeline {
                         }
                     }
 
-                    // Parallel analysis for backend modules
-                    withSonarQubeEnv('SonarQube') {  // <-- must match Jenkins config name
+                    withSonarQubeEnv('SonarQube') {
                         withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                             def modules = ["discovery-service", "api-gateway", "user-service", "travel-service"]
                             def sonarStages = [:]
@@ -130,10 +127,7 @@ pipeline {
                 script {
                     echo "Deploying ${VERSION}"
                     withEnv(["IMAGE_TAG=${VERSION}"]) {
-                        // Using Ansible to deploy if available
                         sh 'ansible-playbook -i ansible/inventory ansible/playbook.yml || echo "Fallback to docker compose"'
-
-                        // Fallback if ansible not working
                         sh 'docker compose up -d || true'
                     }
 
@@ -143,7 +137,6 @@ pipeline {
                     checkService("PostgreSQL", "http://postgres:${POSTGRES_PORT}", false)
                     checkService("Neo4j Browser", "http://neo4j:${NEO4J_HTTP}", false)
 
-                    checkService("Frontend", "http://front:${FRONTEND_PORT}")
                     checkService("API Gateway", "http://api-gateway:${API_GATEWAY_PORT}/actuator/health")
                     checkService("Discovery Service", "http://discovery-service:${DISCOVERY_PORT}/actuator/health")
                     checkService("User Service", "http://user-service:${USER_SERVICE_PORT}/actuator/health")
